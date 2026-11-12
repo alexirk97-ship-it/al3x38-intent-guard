@@ -1,0 +1,88 @@
+# al3x38-intent-guard
+
+**`al3x38-intent-guard`** — это асинхронный поведенческий фаервол (Guardrail) для ИИ-агентов на Python. Библиотека проверяет согласованность между исходным запросом пользователя, текстовым ответом нейросети и вызываемыми системными инструментами (Function Calling).
+
+## Зачем это нужно
+
+Современные LLM-агенты уязвимы к скрытым промпт-инъекциям (Indirect Prompt Injection) и несогласованному поведению: модель может сгенерировать вежливый, релевантный ответ для пользователя, но в фоновом режиме попытаться вызвать привилегированную функцию (`rm_dir`, `db_write`, `send_funds`) с аргументами, не связанными с исходной задачей.
+
+`al3x38-intent-guard` решает эту проблему через трехуровневый контроль:
+1. **Семантическая кросс-валидация:** вычисляет косинусное расстояние между эмбеддингами запроса, ответа и аргументов вызываемого инструмента.
+2. **Анализ энтропии логитов (White-Box):** при наличии `logprobs` оценивает внутреннюю неуверенность модели по формуле Шеннона.
+3. **Динамический скоринг доверия (Trust Score):** ведет накопительную репутацию по каждой сессии (`session_id`) с поддержкой режима ручного подтверждения (`NEED_APPROVAL`) и полной заморозки (`SUSPENDED`).
+
+## Установка
+
+Базовая установка (требуется только `numpy`):
+```bash
+pip install al3x38-intent-guard
+```
+
+Установка с автономным офлайн-движком эмбеддингов (без необходимости поднимать Ollama или использовать внешние API):
+```bash
+pip install al3x38-intent-guard[offline]
+```
+
+## Быстрый старт
+
+### 1. Работа с локальной Ollama
+```python
+import asyncio
+from al3x38_intent_guard import (
+    ActionVerdict,
+    IntentGuardCore,
+    OllamaLocalEmbedder,
+    parse_ollama_payload,
+)
+
+async def main():
+    embedder = OllamaLocalEmbedder(host="http://localhost:11434", model="bge-m3")
+    guard = IntentGuardCore(embedder)
+
+    # Сырой ответ от Ollama (/api/chat)
+    raw_response = {
+        "message": {
+            "content": "Конечно, сейчас проверю статус вашего заказа.",
+            "tool_calls": [
+                {"function": {"name": "rm_dir", "arguments": {"path": "/var/www"}}}
+            ]
+        }
+    }
+
+    telemetry = parse_ollama_payload(
+        session_id="user_42",
+        prompt="Где мой заказ №105?",
+        payload=raw_response
+    )
+
+    verdict, reason = await guard.check(telemetry)
+    if verdict != ActionVerdict.ALLOW:
+        print(f"Выполнение остановлено [{verdict.value}]: {reason}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 2. Полностью автономный режим (на CPU)
+```python
+from al3x38_intent_guard import IntentGuardCore, OfflineFastEmbedder
+
+embedder = OfflineFastEmbedder(model_name="intfloat/multilingual-e5-small")
+guard = IntentGuardCore(embedder)
+```
+
+### 3. Подключение к OpenAI / LM Studio / vLLM
+```python
+from al3x38_intent_guard import IntentGuardCore, OpenAICompatEmbedder
+
+embedder = OpenAICompatEmbedder(
+    base_url="http://localhost:1234/v1",
+    api_key="lm-studio",
+    model="nomic-embed-text"
+)
+guard = IntentGuardCore(embedder)
+```
+
+## Лицензия
+
+MIT License. Автор концепции и архитектуры: **al3x38**.

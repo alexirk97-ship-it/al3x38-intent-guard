@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "al3x38-intent-guard"
+version = "1.0.0"
+description = "Behavioral guardrail and intent-to-action verification layer for LLM agents"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "al3x38"}
+]
+keywords = ["llm", "security", "guardrails", "ai-agents", "alignment", "intent-verification"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = [
+    "numpy>=1.24.0"
+]
+
+[project.optional-dependencies]
+offline = ["fastembed>=0.3.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,15 @@
+# Папки сборки и дистрибутивы
+build/
+dist/
+*.egg-info/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Виртуальные окружения и локальные стейты
+.venv/
+venv/
+env/
+*.json
