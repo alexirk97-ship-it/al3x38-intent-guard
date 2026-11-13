@@ -1,9 +1,10 @@
 import asyncio
 import json
+import os
 import urllib.error
 import urllib.request
 from collections import OrderedDict
-from typing import Protocol
+from typing import Optional, Protocol
 
 import numpy as np
 
@@ -115,7 +116,12 @@ class OllamaLocalEmbedder:
 class OfflineFastEmbedder:
     """Автономный офлайн-драйвер на базе ONNX (требует pip install al3x38-intent-guard[offline])."""
 
-    def __init__(self, model_name: str = "intfloat/multilingual-e5-small"):
+    def __init__(
+        self,
+        model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        cache_dir: Optional[str] = None,
+        local_files_only: bool = False,
+    ):
         try:
             from fastembed import TextEmbedding
         except ImportError as err:
@@ -123,7 +129,21 @@ class OfflineFastEmbedder:
                 "Для автономного режима установите пакет с опцией offline: "
                 "pip install al3x38-intent-guard[offline]"
             ) from err
-        self._engine = TextEmbedding(model_name=model_name)
+
+        if local_files_only:
+            os.environ["HF_HUB_OFFLINE"] = "1"
+
+        kwargs = {"model_name": model_name}
+        if cache_dir:
+            kwargs["cache_dir"] = cache_dir
+        if local_files_only:
+            kwargs["local_files_only"] = True
+
+        try:
+            self._engine = TextEmbedding(**kwargs)
+        except TypeError:
+            kwargs.pop("local_files_only", None)
+            self._engine = TextEmbedding(**kwargs)
 
     async def get_vector(self, text: str) -> np.ndarray:
         def _run() -> np.ndarray:

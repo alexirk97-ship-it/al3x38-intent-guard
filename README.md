@@ -67,7 +67,7 @@ if __name__ == "__main__":
 ```python
 from al3x38_intent_guard import IntentGuardCore, OfflineFastEmbedder
 
-embedder = OfflineFastEmbedder(model_name="intfloat/multilingual-e5-small")
+embedder = OfflineFastEmbedder(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 guard = IntentGuardCore(embedder)
 ```
 
@@ -82,6 +82,9 @@ embedder = OpenAICompatEmbedder(
 )
 guard = IntentGuardCore(embedder)
 ```
+## Ссылки
+* **GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://github.com/alexirk97-ship-it/al3x38-intent-guard)
+* **PyPI:** [al3x38-intent-guard](https://pypi.org/project/al3x38-intent-guard/)
 
 ## Лицензия
 

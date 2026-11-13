@@ -3,9 +3,11 @@ from .core import (
     GuardConfig,
     IntentGuardCore,
     StepTelemetry,
+    ToolInvocation,
 )
 from .embedders import (
     Embedder,
+    EmbedderError,
     LRUEmbedderCache,
     OfflineFastEmbedder,
     OllamaLocalEmbedder,
@@ -16,19 +18,21 @@ from .parsers import (
     parse_openai_payload,
 )
 
-__version__ = "1.0.0"
-__author__ = "al3x38"
+__version__ = "1.0.1"
 
 __all__ = [
     "ActionVerdict",
+    "Embedder",
+    "EmbedderError",
     "GuardConfig",
     "IntentGuardCore",
-    "StepTelemetry",
-    "Embedder",
     "LRUEmbedderCache",
     "OfflineFastEmbedder",
     "OllamaLocalEmbedder",
     "OpenAICompatEmbedder",
+    "StepTelemetry",
+    "ToolInvocation",
     "parse_ollama_payload",
     "parse_openai_payload",
+    "__version__",
 ]
