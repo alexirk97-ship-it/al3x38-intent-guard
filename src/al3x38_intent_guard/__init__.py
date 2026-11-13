@@ -1,4 +1,5 @@
 from .core import (
+    DEFAULT_SECRET_PATTERNS,
     ActionVerdict,
     GuardConfig,
     IntentGuardCore,
@@ -18,10 +19,11 @@ from .parsers import (
     parse_openai_payload,
 )
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 __all__ = [
     "ActionVerdict",
+    "DEFAULT_SECRET_PATTERNS",
     "Embedder",
     "EmbedderError",
     "GuardConfig",

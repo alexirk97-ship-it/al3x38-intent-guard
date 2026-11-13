@@ -82,6 +82,13 @@ embedder = OpenAICompatEmbedder(
 )
 guard = IntentGuardCore(embedder)
 ```
+## Расширенные возможности (v1.1.0)
+
+* **Защита от утечек секретов и промпта (Secret Guard):** встроенный сканер регулярных выражений (`enable_secret_guard=True`) блокирует случайную выдачу API-ключей (`sk-...`, `hf_...`, `pypi-...`) и фрагментов системного промпта как в обычном ответе, так и в потоковом режиме `verify_stream`.
+* **Гибридный судья для «серой зоны» (Gray-Zone Judge):** при пограничном сдвиге смысла (`gray_zone_min_drift .. max_semantic_drift`) ядро может вызвать асинхронную функцию-арбитра (`gray_zone_judge`), не нагружая ее на очевидных запросах.
+* **Амнистия доверия по времени (Trust Recovery):** плавное автоматическое восстановление рейтинга репутации (`trust_recovery_per_hour`) при отсутствии нарушений со стороны сессии.
+* **Журнал аудита и телеметрия:** запись инцидентов в формат JSONL (`audit_log_file`) и получение живой сводки через `guard.get_stats()`.
+
 ## Ссылки
 * **GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://github.com/alexirk97-ship-it/al3x38-intent-guard)
 * **PyPI:** [al3x38-intent-guard](https://pypi.org/project/al3x38-intent-guard/)
