@@ -133,9 +133,9 @@ guard = IntentGuardCore(embedder)
 
 ---
 
-## Key Features (v1.1.0)
+## Key Features (v1.1.1)
 
-* **Real-Time Stream Guard (`verify_stream`):** Inspects token streams on the fly (every N words) and aborts generation mid-sentence if a secret leak or semantic drift occurs.
+* **Real-Time Stream Guard (`verify_stream`):** Inspects token streams on the fly (every N words) and aborts generation mid-sentence if a secret leak or semantic drift occurs, rewarding session trust only once upon full clean completion.
 * **Secret & Prompt Leak Filter (`Secret Guard`):** Built-in regex scanner (`enable_secret_guard=True`) catches accidental exposure of API keys (`sk-...`, `hf_...`, `pypi-...`, `AKIA...`) and system prompt fragments.
 * **Hybrid Gray-Zone Arbitration:** Offloads ambiguous edge cases to a custom async `gray_zone_judge` callback without slowing down routine requests.
 * **Persistent State & JSONL Audit Logs:** Saves session trust state safely across restarts and logs all verdicts (`ALLOW`, `NEED_APPROVAL`, `BLOCK`, `SUSPENDED`) with drift metrics and live stats via `guard.get_stats()`.

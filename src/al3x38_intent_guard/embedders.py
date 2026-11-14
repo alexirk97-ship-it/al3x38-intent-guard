@@ -1,10 +1,11 @@
+from __future__ import annotations
 import asyncio
 import json
 import os
 import urllib.error
 import urllib.request
 from collections import OrderedDict
-from typing import Optional, Protocol
+from typing import Protocol
 
 import numpy as np
 
@@ -119,7 +120,7 @@ class OfflineFastEmbedder:
     def __init__(
         self,
         model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-        cache_dir: Optional[str] = None,
+        cache_dir: str | None = None,
         local_files_only: bool = False,
     ):
         try:

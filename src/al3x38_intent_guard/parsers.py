@@ -1,5 +1,6 @@
+from __future__ import annotations
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .core import StepTelemetry, ToolInvocation
 
@@ -7,7 +8,7 @@ from .core import StepTelemetry, ToolInvocation
 def parse_openai_payload(
     session_id: str,
     prompt: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     approved: bool = False,
 ) -> StepTelemetry:
     """Извлекает текст, все вызовы функций и logprobs из ответа формата OpenAI / vLLM / LM Studio."""
@@ -19,7 +20,7 @@ def parse_openai_payload(
     msg = choice.get("message", {})
     text = msg.get("content") or ""
 
-    invocations: List[ToolInvocation] = []
+    invocations: list[ToolInvocation] = []
     raw_calls = msg.get("tool_calls")
     if isinstance(raw_calls, list):
         for call in raw_calls:
@@ -28,7 +29,7 @@ def parse_openai_payload(
             if name:
                 invocations.append(ToolInvocation(name=name, arguments=str(fn.get("arguments", ""))))
 
-    logits: Optional[List[float]] = None
+    logits: list[float] | None = None
     lp = choice.get("logprobs")
     if isinstance(lp, dict) and lp.get("content"):
         first_token_info = lp["content"][0]
@@ -49,14 +50,14 @@ def parse_openai_payload(
 def parse_ollama_payload(
     session_id: str,
     prompt: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     approved: bool = False,
 ) -> StepTelemetry:
     """Извлекает текст и вызовы инструментов из ответа локального сервера Ollama (/api/chat)."""
     msg = payload.get("message", {})
     text = msg.get("content") or ""
 
-    invocations: List[ToolInvocation] = []
+    invocations: list[ToolInvocation] = []
     raw_calls = msg.get("tool_calls")
     if isinstance(raw_calls, list):
         for call in raw_calls:

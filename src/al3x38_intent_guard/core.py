@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import json
 import logging
@@ -6,7 +7,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncIterable, AsyncIterator, Awaitable, Callable, Dict, List, Optional, Set, Tuple
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 
 import numpy as np
 
@@ -14,7 +15,7 @@ from .embedders import Embedder, LRUEmbedderCache
 
 log = logging.getLogger("al3x38.guard.core")
 
-DEFAULT_SECRET_PATTERNS: Tuple[str, ...] = (
+DEFAULT_SECRET_PATTERNS: tuple[str, ...] = (
     r"sk-[a-zA-Z0-9_-]{20,}",
     r"hf_[a-zA-Z0-9]{20,}",
     r"pypi-[a-zA-Z0-9_-]{30,}",
@@ -43,8 +44,8 @@ class StepTelemetry:
     session_id: str
     prompt: str
     response: str
-    tools: List[ToolInvocation] = field(default_factory=list)
-    logits: Optional[List[float]] = None
+    tools: list[ToolInvocation] = field(default_factory=list)
+    logits: list[float] | None = None
     approved_by_human: bool = False
 
 
@@ -59,12 +60,12 @@ class GuardConfig:
     trust_step_up: float = 0.02
     trust_step_down: float = 0.25
     trust_recovery_per_hour: float = 0.05
-    state_file: Optional[str] = "al3x38_trust_state.json"
-    audit_log_file: Optional[str] = None
+    state_file: str | None = "al3x38_trust_state.json"
+    audit_log_file: str | None = None
     enable_secret_guard: bool = True
-    secret_patterns: Tuple[str, ...] = DEFAULT_SECRET_PATTERNS
-    gray_zone_judge: Optional[Callable[[StepTelemetry, float], Awaitable[bool]]] = None
-    restricted_tools: Set[str] = field(default_factory=lambda: {
+    secret_patterns: tuple[str, ...] = DEFAULT_SECRET_PATTERNS
+    gray_zone_judge: Callable[[StepTelemetry, float], Awaitable[bool]] | None = None
+    restricted_tools: set[str] = field(default_factory=lambda: {
         "db_write",
         "send_funds",
         "rm_dir",
@@ -76,22 +77,22 @@ class GuardConfig:
 
 class IntentGuardCore:
     """
-    Контур поведенческого контроля ИИ-агента v1.1.0 (al3x38 architecture).
+    Контур поведенческого контроля ИИ-агента v1.1.1 (al3x38 architecture).
     Включает семантическую кросс-валидацию, гибридную проверку серой зоны,
     фильтр утечек секретов, восстановление доверия по времени и аудит-метрики.
     """
 
-    def __init__(self, embedder: Embedder, cfg: Optional[GuardConfig] = None, cache_size: int = 1024):
+    def __init__(self, embedder: Embedder, cfg: GuardConfig | None = None, cache_size: int = 1024):
         self.embedder = LRUEmbedderCache(embedder, capacity=cache_size)
         self.cfg = cfg or GuardConfig()
         self._lock = asyncio.Lock()
-        self._trust_map: Dict[str, float] = {}
-        self._last_seen: Dict[str, float] = {}
-        self._compiled_secrets: List[re.Pattern] = [
+        self._trust_map: dict[str, float] = {}
+        self._last_seen: dict[str, float] = {}
+        self._compiled_secrets: list[re.Pattern] = [
             re.compile(p) for p in self.cfg.secret_patterns
         ] if self.cfg.enable_secret_guard else []
 
-        self._stats: Dict[str, float] = {
+        self._stats: dict[str, float] = {
             "total_checks": 0,
             "allowed": 0,
             "blocked": 0,
@@ -174,7 +175,7 @@ class IntentGuardCore:
         self._trust_map[session_id] = trust
         return trust
 
-    def _detect_secret_leak(self, text: str) -> Optional[str]:
+    def _detect_secret_leak(self, text: str) -> str | None:
         if not self.cfg.enable_secret_guard or not text:
             return None
         for pattern in self._compiled_secrets:
@@ -194,7 +195,7 @@ class IntentGuardCore:
         return 1.0 - max(-1.0, min(1.0, sim))
 
     @staticmethod
-    def _calc_entropy(logits: Optional[List[float]]) -> float:
+    def _calc_entropy(logits: list[float] | None) -> float:
         if not logits:
             return 0.0
         arr = np.array(logits, dtype=np.float64)
@@ -207,7 +208,7 @@ class IntentGuardCore:
     def get_session_trust(self, session_id: str) -> float:
         return self._trust_map.get(session_id, self.cfg.init_trust)
 
-    def get_stats(self) -> Dict[str, float]:
+    def get_stats(self) -> dict[str, float]:
         total = int(self._stats["total_checks"])
         avg_drift = (self._stats["drift_sum"] / total) if total > 0 else 0.0
         return {
@@ -222,7 +223,7 @@ class IntentGuardCore:
             "tracked_sessions": len(self._trust_map),
         }
 
-    async def reset_session(self, session_id: str, new_trust: Optional[float] = None) -> float:
+    async def reset_session(self, session_id: str, new_trust: float | None = None) -> float:
         async with self._lock:
             val = self.cfg.init_trust if new_trust is None else max(0.0, min(1.0, new_trust))
             self._trust_map[session_id] = val
@@ -230,7 +231,7 @@ class IntentGuardCore:
             await self._flush_state()
             return val
 
-    async def check(self, step: StepTelemetry) -> Tuple[ActionVerdict, str]:
+    async def check(self, step: StepTelemetry, reward_trust: bool = True) -> tuple[ActionVerdict, str]:
         async with self._lock:
             self._stats["total_checks"] += 1
             trust = self._apply_time_recovery(step.session_id)
@@ -321,9 +322,10 @@ class IntentGuardCore:
 
             # 7. Штатное выполнение и плавное восстановление доверия
             self._stats["allowed"] += 1
-            trust = min(1.0, trust + self.cfg.trust_step_up)
-            self._trust_map[step.session_id] = trust
-            await self._flush_state()
+            if reward_trust:
+                trust = min(1.0, trust + self.cfg.trust_step_up)
+                self._trust_map[step.session_id] = trust
+                await self._flush_state()
             reason = f"OK (trust={trust:.2f})"
             return ActionVerdict.ALLOW, reason
 
@@ -334,7 +336,7 @@ class IntentGuardCore:
         token_stream: AsyncIterable[str],
         check_every_words: int = 20,
     ) -> AsyncIterator[str]:
-        buffer: List[str] = []
+        buffer: list[str] = []
         word_count = 0
 
         async for chunk in token_stream:
@@ -348,10 +350,21 @@ class IntentGuardCore:
             if word_count >= check_every_words:
                 word_count = 0
                 verdict, reason = await self.check(
-                    StepTelemetry(session_id=session_id, prompt=prompt, response=current_text)
+                    StepTelemetry(session_id=session_id, prompt=prompt, response=current_text),
+                    reward_trust=False,
                 )
                 if verdict != ActionVerdict.ALLOW:
                     log.warning(f"Поток прерван защитой [{session_id}]: {reason}")
                     raise PermissionError(f"Stream blocked by al3x38-intent-guard: {reason}")
 
             yield chunk
+
+        final_text = "".join(buffer)
+        if final_text.strip():
+            verdict, reason = await self.check(
+                StepTelemetry(session_id=session_id, prompt=prompt, response=final_text),
+                reward_trust=True,
+            )
+            if verdict != ActionVerdict.ALLOW:
+                log.warning(f"Финал потока отклонен защитой [{session_id}]: {reason}")
+                raise PermissionError(f"Stream blocked by al3x38-intent-guard: {reason}")

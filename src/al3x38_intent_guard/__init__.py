@@ -19,11 +19,11 @@ from .parsers import (
     parse_openai_payload,
 )
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 __all__ = [
-    "ActionVerdict",
     "DEFAULT_SECRET_PATTERNS",
+    "ActionVerdict",
     "Embedder",
     "EmbedderError",
     "GuardConfig",
@@ -34,7 +34,7 @@ __all__ = [
     "OpenAICompatEmbedder",
     "StepTelemetry",
     "ToolInvocation",
+    "__version__",
     "parse_ollama_payload",
     "parse_openai_payload",
-    "__version__",
 ]
