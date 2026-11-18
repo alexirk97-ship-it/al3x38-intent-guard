@@ -6,24 +6,24 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-**`al3x38-intent-guard`** is an asynchronous behavioral guardrail and intent-to-action verification layer for LLM agents in Python. It checks whether an agent's text response and system tool calls (`Function Calling`) actually match the user's original intent.
+**`al3x38-intent-guard`** is an asynchronous behavioral guardrail and intent-to-action verification layer for LLM agents in Python. It checks whether an agent's text response, long-term session direction, and system tool calls (`Function Calling`) actually match the user's original intent.
 
 ---
 
 ## Why I built this
 
-Most AI guardrails rely on static regex blacklists or heavy external classifier models. They catch obvious bad words, but fail against **Indirect Prompt Injection** and subtle behavioral drift—where an LLM writes a polite, relevant reply to the user while silently triggering a privileged tool (`rm_dir`, `db_write`, `send_funds`) with unrelated arguments in the background.
+Most AI guardrails rely on static regex blacklists or heavy external classifier models. They catch obvious bad words, but fail against **Indirect Prompt Injection** and gradual **Multi-Turn Context Drift**—where an LLM writes a polite reply to the user while silently triggering a privileged tool (`rm_dir`, `db_write`, `send_funds`) or slowly drifting away from the main task over several turns.
 
-Instead of static rules, I modeled `IntentGuardCore` after how **human trust and cognitive self-control** work in real life:
-* **Initial Trust & Reputation (`trust_map`):** Every session starts with a baseline trust score (`0.8`). Normal behavior builds it up slowly (`+0.02`), while suspicious drift or manipulation drops it sharply (`-0.25`).
-* **Semantic Drift Detection:** Measures cosine distance between the user prompt, the model's response, and the exact arguments of any restricted tool call.
-* **Internal Uncertainty (`White-Box Entropy`):** When `logprobs` are available, calculates Shannon entropy to detect internal confusion or adversarial steering before an action executes.
-* **The "Gray Zone" & Human-in-the-Loop:** If a step falls into a borderline drift range (`gray_zone_min_drift .. max_semantic_drift`), it can consult an async `gray_zone_judge` or pause execution for human confirmation (`NEED_APPROVAL`).
-* **Time-Based Amnesty (`Trust Recovery`):** Just like human emotions cooling down over time, session trust gradually recovers (`trust_recovery_per_hour`) if no further violations occur—unless the session crosses the hard `SUSPENDED` threshold.
+Instead of static rules, `IntentGuardCore` models **human trust, goal focus, and cognitive self-control**:
+* **Dynamic Trust & Non-Linear Penalties:** Every session starts with a baseline trust score (`0.8`). Constructive steps build it up slowly (`+0.02`), while semantic drift or manipulation applies a smooth, non-linear penalty proportional to how far the deviation exceeds the threshold.
+* **Vector Compass (Session Goal Anchor):** Locks a reference vector for the session's main goal (`set_session_goal`). If the conversation drifts outside the exploration radius (`goal_exploration_radius`), it issues a soft `COURSE_CORRECTION` prompt instead of breaking the session immediately, blocking only when `max_goal_drift` is exceeded.
+* **Semantic Cross-Validation:** Measures cosine distance between the user prompt, the model's response, and the exact arguments of any restricted tool call.
+* **Internal Uncertainty (`White-Box Entropy`):** When `logprobs` are available, calculates Shannon entropy to detect internal confusion before an action executes.
+* **The "Gray Zone" & Time-Based Amnesty:** Borderline cases (`gray_zone_min_drift .. max_semantic_drift`) can consult an async `gray_zone_judge` or pause for human confirmation (`NEED_APPROVAL`), while trust gradually recovers over time (`trust_recovery_per_hour`).
 
 ---
 
-## Architecture Pipeline
+## Architecture Pipeline (v1.1.2)
 
 ```text
 [User Prompt + LLM Response + Tool Calls + Logits]
@@ -42,11 +42,16 @@ Instead of static rules, I modeled `IntentGuardCore` after how **human trust and
            └─► Prompt <-> Restricted Tool Arguments drift
                         │
                         ▼
-        3. Logit Entropy (White-Box) & Gray-Zone Judge
-           └─► High drift or high entropy ──► [BLOCK] (-trust)
+        3. Logit Entropy & Gray-Zone Arbitrator
+           └─► High drift or high entropy ──► [BLOCK] (-non-linear penalty)
                         │
                         ▼
-        4. Low-Trust Quarantine Check
+        4. Vector Compass (Session Goal Check)
+           ├─► drift > max_goal_drift ──────────► [BLOCK] (-non-linear penalty)
+           └─► drift > goal_exploration_radius ─► [COURSE_CORRECTION]
+                        │
+                        ▼
+        5. Low-Trust Quarantine Check
            └─► Restricted tool & trust < min_trust ──► [NEED_APPROVAL]
                         │
                         ▼
@@ -71,7 +76,7 @@ pip install al3x38-intent-guard[offline]
 
 ## Quick Start
 
-### 1. Local Ollama Integration
+### 1. Local Ollama & Vector Compass Example
 ```python
 import asyncio
 from al3x38_intent_guard import (
@@ -84,6 +89,9 @@ from al3x38_intent_guard import (
 async def main():
     embedder = OllamaLocalEmbedder(host="http://localhost:11434", model="bge-m3")
     guard = IntentGuardCore(embedder)
+
+    # Set a Vector Compass anchor for the session
+    await guard.set_session_goal("user_42", "Customer order status and shipping support")
 
     # Raw payload from Ollama (/api/chat)
     raw_response = {
@@ -119,33 +127,25 @@ embedder = OfflineFastEmbedder(
 guard = IntentGuardCore(embedder)
 ```
 
-### 3. OpenAI / LM Studio / vLLM Compatible APIs
-```python
-from al3x38_intent_guard import IntentGuardCore, OpenAICompatEmbedder
+---
 
-embedder = OpenAICompatEmbedder(
-    base_url="http://localhost:1234/v1",
-    api_key="lm-studio",
-    model="nomic-embed-text"
-)
-guard = IntentGuardCore(embedder)
-```
+## What's New in v1.1.2
+
+* **Vector Compass (`set_session_goal`, `get_session_goal`, `clear_session_goal`):** Added persistent session goal tracking to prevent gradual multi-turn topic drift without breaking backward compatibility with existing `check()` calls.
+* **Soft Course Correction (`ActionVerdict.COURSE_CORRECTION`):** Added a non-destructive warning verdict when an agent steps outside `goal_exploration_radius` while remaining below `max_goal_drift`.
+* **Non-Linear Trust Penalty (`_calc_dynamic_penalty`):** Replaced fixed step-down deductions on semantic drift with a smooth exponential curve—minor boundary slips incur lighter penalties, while severe deviations trigger full `trust_step_down` deductions.
+* **Short-Prompt Noise Protection:** For short follow-up prompts (under 3 words), the Vector Compass automatically anchors against the model's generated response vector to prevent false positives.
 
 ---
 
-## Key Features (v1.1.1)
-
-* **Real-Time Stream Guard (`verify_stream`):** Inspects token streams on the fly (every N words) and aborts generation mid-sentence if a secret leak or semantic drift occurs, rewarding session trust only once upon full clean completion.
-* **Secret & Prompt Leak Filter (`Secret Guard`):** Built-in regex scanner (`enable_secret_guard=True`) catches accidental exposure of API keys (`sk-...`, `hf_...`, `pypi-...`, `AKIA...`) and system prompt fragments.
-* **Hybrid Gray-Zone Arbitration:** Offloads ambiguous edge cases to a custom async `gray_zone_judge` callback without slowing down routine requests.
-* **Persistent State & JSONL Audit Logs:** Saves session trust state safely across restarts and logs all verdicts (`ALLOW`, `NEED_APPROVAL`, `BLOCK`, `SUSPENDED`) with drift metrics and live stats via `guard.get_stats()`.
-
----
-
-## Links
+## Documentation & Links
 
 * **GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://github.com/alexirk97-ship-it/al3x38-intent-guard)
 * **PyPI:** [al3x38-intent-guard](https://pypi.org/project/al3x38-intent-guard/)
+* **Raspberry Pi Mirror (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/
+* **Architecture Invariants:** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/ARCHITECTURE.md
+* **Technical Whitepaper (EN):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER.md
+* **Technical Whitepaper (RU):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER_RU.md
 
 ## License
 
