@@ -1,3 +1,7 @@
+from .conscience_compass import (
+    ConscienceCompass,
+    ConscienceState,
+)
 from .core import (
     DEFAULT_SECRET_PATTERNS,
     ActionVerdict,
@@ -19,11 +23,13 @@ from .parsers import (
     parse_openai_payload,
 )
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 
 __all__ = [
     "DEFAULT_SECRET_PATTERNS",
     "ActionVerdict",
+    "ConscienceCompass",
+    "ConscienceState",
     "Embedder",
     "EmbedderError",
     "GuardConfig",

@@ -1,44 +1,70 @@
-# Architecture & Core Invariants (`al3x38-intent-guard`)
+# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.3)
 
-This document defines the immutable mathematical and architectural principles of the **al3x38** behavioral alignment kernel. Any future extensions, integrations, or external modules must adhere to these invariants.
+This document defines the foundational philosophy, mathematical invariants, and architectural boundaries of the **al3x38** behavioral alignment kernel. Every module, driver, or integration built on top of this core follows one overarching rule: **measure alignment against natural invariants rather than patching symptoms with endless static rules.**
 
 ---
 
-## 1. Microkernel Principle (Mechanism vs. Policy)
+## 1. Engineering Philosophy: Why Rules Fail and Invariants Hold
+
+Most safety systems in software and AI are built like patchworks of prohibitions: blacklists of words, rigid regex filters, and thousands of brittle `if/else` exceptions. In nature, however, complex systems do not survive by memorizing millions of prohibitions—they survive by holding a **reference invariant** (an internal compass) and sensing deviation from it in real time.
+
+When an AI agent or human dialogue drifts into deception, hidden manipulation, or destructive action, the root problem is always a **loss of coherence**—a split between internal state, spoken words, and actual deeds.
+
+`al3x38-intent-guard` translates this principle into deterministic vector geometry:
+* **Truth without respect** becomes cold, destructive cruelty.
+* **Politeness without truth** becomes manipulation and hidden camouflage ("polite prompt injection").
+* **True alignment (Coherence)** exists only when **Transparency/Truth ($D$)** and **Constructive Respect ($L$)** are simultaneously positive and synchronized with the session's **Reference Goal**.
+
+---
+
+## 2. Microkernel Principle (Mechanism vs. Policy)
 
 Like an operating system microkernel or a processor ALU, the core engine contains **zero hardcoded domain rules, word blacklists, or task-specific logic**.
-* **The Kernel (`Mechanism`):** Computes vector geometry, cross-channel dissonance, statistical normalization, and session trust dynamics using only `numpy`.
-* **External Drivers (`Policy`):** Semantic embedders, LLM judges, toxicity filters, tool wrappers, and task checkpoint managers attach externally via async hooks and protocols without modifying core math.
+
+* **The Kernel (`Mechanism`):** Computes vector geometry, differential coherence axes, cross-channel dissonance, Shannon entropy, and session trust dynamics using only `numpy`.
+* **External Drivers (`Policy`):** Semantic embedders (`Ollama`, `FastEmbed` ONNX, OpenAI-compatible endpoints), LLM gray-zone judges, and application hooks attach externally through clean async protocols without altering core math.
 
 ---
 
-## 2. Four Mathematical Invariants
+## 3. Five Mathematical Invariants
 
-### I. Geometric Measurement (Language & Domain Agnostic)
-The kernel evaluates every step across four orthogonal signal axes:
-1. **Thought (`Logits`):** Internal model uncertainty via Shannon entropy.
-2. **Word (`Response`):** Cosine distance between the user prompt and the generated text.
-3. **Deed (`Tool Arguments`):** Cosine distance between the user prompt and the arguments of privileged system calls.
-4. **Anchor (`Goal Vector`):** Cosine distance between the current step and the session's reference goal vector.
+### I. Multi-Channel Geometric Measurement (Language & Domain Agnostic)
+The kernel evaluates every step across four orthogonal signal channels:
+1. **Thought (`Logits`):** Internal model uncertainty measured via Shannon entropy ($H = -\sum p_i \log_2 p_i$).
+2. **Word (`Response`):** Cosine distance between the user's prompt and the generated response.
+3. **Deed (`Tool Arguments`):** Cosine distance between the user's prompt and the exact arguments of privileged system calls (`db_write`, `send_funds`, `rm_dir`, `exec_cmd`, etc.).
+4. **Anchor (`Goal Vector`):** Cosine distance between the current step and the session's persistent reference objective (`set_session_goal`).
 
-### II. Dynamic Scale Normalization ($O(1)$ Welford Calibration)
-Different signal channels operate in different physical units. Instead of static hardcoded multipliers, each axis is normalized against its own running variance using **Welford's online algorithm** ($O(1)$ memory and compute). All deviations are evaluated in unified standard deviation units ($\sigma$), weighted dynamically by action irreversibility.
+### II. Differential Coherence Axes (`ConscienceCompass`: $D \cdot L \rightarrow S$)
+Raw cosine similarity between two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To eliminate linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.3 introduces **differential semantic axes**:
 
-### III. Coherence & Dissonance (Anti-Mimicry Invariant)
-Alignment is defined as the synchronization of Thought, Word, and Deed:
-* **Dissonance:** Measured as the spread across active channels ($\max - \min$). If the external Word appears benign while Thought or Deed spikes anomalously, dissonance rises sharply, exposing adversarial camouflage or indirect prompt injection.
-* **Transparency:** Defined inversely to total chaos and cross-channel dissonance ($\in (0, 1]$), where $1.0$ represents complete alignment with the reference anchor.
+$$\vec{V}_{\text{axis}} = \operatorname{norm}\!\left(\operatorname{norm}(\vec{V}_{+}) - \operatorname{norm}(\vec{V}_{-})\right)$$
 
-### IV. Zero-Intervention Deadband & Healing Vector
-* **Zero Resistance at the Anchor:** When an agent or user operates within the natural deadband around the reference anchor (`goal_exploration_radius`), the correction vector is $\vec{0}$ and the kernel introduces zero friction (`ALLOW`).
-* **Diagnostic Course Correction (`COURSE_CORRECTION`):** When semantic drift exceeds the exploration radius without crossing critical boundaries (`max_goal_drift`), the kernel emits a soft `COURSE_CORRECTION` signal so upper layers can steer the conversation back to the main objective without terminating the session.
-* **Circuit Breaker (`BLOCK` / `SUSPENDED`):** Hard blocking is reserved for irreversible actions under high dissonance, secret leaks, or critical goal breach (applying non-linear trust penalties), while `SUSPENDED` isolates sessions whose trust drops below `suspend_limit` until passive time-based recovery restores balance.
+* **Axis of Truth & Directness ($D$ — "Friendship"):** Projection onto $\vec{V}_{\text{truth+}} - \vec{V}_{\text{manipulation-}}$. Measures openness, honesty, and absence of hidden agenda.
+* **Axis of Constructive Respect ($L$ — "Love"):** Projection onto $\vec{V}_{\text{creation+}} - \vec{V}_{\text{aggression-}}$. Measures goodwill, preservation, and non-destructiveness.
+* **Multiplicative Coherence Index ($S$):**
+  * When both $D > 0$ and $L > 0$: $S = \sqrt{D \cdot L}$ (true harmonic resonance).
+  * When both $D < 0$ and $L < 0$: $S = -\sqrt{|D \cdot L|}$ (compound destruction).
+  * When signs diverge ($D \cdot L \le 0$): $S = \min(D, L)$ (imbalance—exposing polite deception or harsh toxicity).
+
+### III. Trajectory Gradient ($\nabla S / \Delta t$) & Redemption
+Static classifiers judge every message in isolation. `ConscienceCompass` tracks a sliding window of recent steps per session and computes the trajectory gradient $\Delta S = S_t - S_{t-1}$:
+* If a session enters negative coherence ($S < 0$) while continuing to degrade ($\Delta S \le 0.08$), the kernel triggers a hard `BLOCK` and deducts trust.
+* If the trajectory shows a clear upward turn toward honesty and respect ($\Delta S > 0.08$), the kernel softens the response to `COURSE_CORRECTION`, giving the user or agent room to self-correct without destroying the session.
+
+### IV. Cross-Channel Dissonance (Anti-Mimicry Invariant)
+Alignment requires synchronization between **Thought**, **Word**, and **Deed**. If the external text (`Word`) sounds polite and helpful while the tool arguments (`Deed`) diverge sharply from the user's prompt or logit entropy spikes (`Thought`), cross-channel dissonance exposes indirect prompt injection before any irreversible action executes.
+
+### V. Zero-Intervention Deadband & Non-Linear Trust Dynamics
+* **Zero Resistance at the Anchor:** When an agent operates within the natural deadband around its reference goal (`goal_exploration_radius`) with positive coherence, the kernel introduces zero friction (`ALLOW`) and gently restores trust (`+trust_step_up`).
+* **Non-Linear Penalties:** Deviations beyond thresholds incur an exponentially scaled trust deduction ($P = S_{\text{down}} \cdot [0.5 + 0.5(1 - e^{-4\cdot\text{excess}})]$), ensuring minor slips receive proportional warnings while severe hijacks hit the full penalty ceiling.
+* **Circuit Breaker & Passive Recovery:** Sessions falling below `suspend_limit` enter `SUSPENDED` isolation, while passive time-based recovery (`trust_recovery_per_hour`) allows gradual rehabilitation after cooling-off periods.
 
 ---
 
-## 3. Extension Slots (Driver Interfaces)
+## 4. Extension Slots (Driver Interfaces)
 
-All applied intelligence connects to the core through clean interfaces:
-* **Embedder Backend (`Embedder`):** Pluggable vector providers (Local Ollama, CPU ONNX `FastEmbed`, OpenAI-compatible endpoints).
-* **Gray-Zone Arbitrator (`gray_zone_judge`):** Optional async callback invoked only when drift falls inside the borderline confidence interval.
-* **Stream Interceptor (`verify_stream`):** Token-level sliding window verification that halts generation mid-stream upon leak or drift while rewarding session trust strictly once upon full clean completion.
+All applied intelligence connects to the core through minimal, dependency-free interfaces:
+* **Embedder Backend (`Embedder`):** Any async class implementing `get_vector(text: str) -> np.ndarray`, wrapped automatically in `LRUEmbedderCache` for $O(1)$ repeat lookups on CPU.
+* **Gray-Zone Arbitrator (`gray_zone_judge`):** Optional async callback invoked exclusively when semantic drift falls inside the borderline corridor (`gray_zone_min_drift .. max_semantic_drift`).
+* **Stream Interceptor (`verify_stream`):** Token-level sliding window validator that halts streaming generation mid-flight upon secret leak or semantic drift, rewarding session trust strictly once upon full, clean completion.

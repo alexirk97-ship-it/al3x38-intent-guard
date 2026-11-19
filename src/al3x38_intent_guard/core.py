@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import asyncio
 import json
 import logging
@@ -10,9 +9,9 @@ import time
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-
 import numpy as np
 
+from .conscience_compass import ConscienceCompass, ConscienceState
 from .embedders import Embedder, LRUEmbedderCache
 
 log = logging.getLogger("al3x38.guard.core")
@@ -68,6 +67,7 @@ class GuardConfig:
     state_file: str | None = "al3x38_trust_state.json"
     audit_log_file: str | None = None
     enable_secret_guard: bool = True
+    enable_conscience_compass: bool = True
     secret_patterns: tuple[str, ...] = DEFAULT_SECRET_PATTERNS
     gray_zone_judge: Callable[[StepTelemetry, float], Awaitable[bool]] | None = None
     restricted_tools: set[str] = field(default_factory=lambda: {
@@ -82,14 +82,16 @@ class GuardConfig:
 
 class IntentGuardCore:
     """
-    Контур поведенческого контроля ИИ-агента v1.1.2 (al3x38 architecture).
+    Контур поведенческого контроля ИИ-агента v1.1.3 (al3x38 architecture).
     Включает семантическую кросс-валидацию, Векторный Компас (эталон цели),
-    нелинейную математику штрафов доверия, проверку серой зоны и фильтр утечек.
+    Компас Совести (D * L -> S), нелинейную математику штрафов доверия,
+    проверку серой зоны и фильтр утечек.
     """
 
     def __init__(self, embedder: Embedder, cfg: GuardConfig | None = None, cache_size: int = 1024):
         self.embedder = LRUEmbedderCache(embedder, capacity=cache_size)
         self.cfg = cfg or GuardConfig()
+        self.compass = ConscienceCompass(self.embedder) if self.cfg.enable_conscience_compass else None
         self._lock = asyncio.Lock()
         self._trust_map: dict[str, float] = {}
         self._last_seen: dict[str, float] = {}
@@ -108,6 +110,7 @@ class IntentGuardCore:
             "suspended": 0,
             "secret_leaks_caught": 0,
             "gray_zone_invocations": 0,
+            "conscience_blocks": 0,
             "drift_sum": 0.0,
         }
         self._read_state()
@@ -237,6 +240,7 @@ class IntentGuardCore:
         probs = exp_vals / np.sum(exp_vals)
         valid = probs[probs > 1e-12]
         return float(-np.sum(valid * np.log2(valid)))
+
     async def set_session_goal(self, session_id: str, goal_text: str) -> None:
         """Фиксирует эталонный вектор главной цели сессии (Векторный Компас)."""
         clean_goal = goal_text.strip()
@@ -264,6 +268,13 @@ class IntentGuardCore:
         """Возвращает текущий рейтинг доверия сессии."""
         return self._trust_map.get(session_id, self.cfg.init_trust)
 
+    async def get_conscience_state(self, session_id: str, text: str) -> ConscienceState | None:
+        """Возвращает детальную векторную оценку (D, L, S, gradient) для текста."""
+        if self.compass is None:
+            return None
+        async with self._lock:
+            return await self.compass.evaluate(session_id, text)
+
     def get_stats(self) -> dict[str, float]:
         """Возвращает сводную статистику проверок, блокировок и коррекций курса."""
         total = int(self._stats["total_checks"])
@@ -277,26 +288,30 @@ class IntentGuardCore:
             "suspended": int(self._stats["suspended"]),
             "secret_leaks_caught": int(self._stats["secret_leaks_caught"]),
             "gray_zone_invocations": int(self._stats["gray_zone_invocations"]),
+            "conscience_blocks": int(self._stats["conscience_blocks"]),
             "avg_semantic_drift": round(avg_drift, 4),
             "tracked_sessions": len(self._trust_map),
             "active_goals": len(self._goal_texts),
         }
 
     async def reset_session(self, session_id: str, new_trust: float | None = None) -> float:
-        """Сбрасывает рейтинг доверия сессии до начального или указанного значения."""
+        """Сбрасывает рейтинг доверия и траекторию когерентности сессии."""
         async with self._lock:
             val = self.cfg.init_trust if new_trust is None else max(0.0, min(1.0, new_trust))
             self._trust_map[session_id] = val
             self._last_seen[session_id] = time.time()
+            if self.compass is not None:
+                self.compass.reset_trajectory(session_id)
             await self._flush_state()
             return val
 
     async def check(self, step: StepTelemetry, reward_trust: bool = True) -> tuple[ActionVerdict, str]:
         """
         Выполняет полную многоуровневую проверку шага ИИ-агента:
-        утечки секретов, семантический дрейф, энтропию логитов, вызов инструментов
-        и удержание эталонной цели (Векторный Компас).
+        утечки секретов, семантический дрейф, энтропию логитов, вызов инструментов,
+        удержание эталонной цели (Векторный Компас) и когерентность Совести (D * L -> S).
         """
+
         async with self._lock:
             self._stats["total_checks"] += 1
             trust = self._apply_time_recovery(step.session_id)
@@ -395,7 +410,6 @@ class IntentGuardCore:
                     goal_vec = await self.embedder.get_vector(goal_text)
                     self._goal_vectors[step.session_id] = goal_vec
 
-                # Для коротких реплик (меньше 3 слов) оцениваем вектор ответа модели, чтобы избежать шума
                 if resp_vec is not None and len(step.prompt.split()) < 3:
                     anchor_target = resp_vec
                 else:
@@ -425,7 +439,47 @@ class IntentGuardCore:
                     await self._write_audit(step.session_id, ActionVerdict.COURSE_CORRECTION, reason, goal_drift)
                     return ActionVerdict.COURSE_CORRECTION, reason
 
-            # 7. Карантин для привилегированных операций при пониженном доверии
+            # 7. КОМПАС СОВЕСТИ: дифференциальная проверка когерентности D * L -> S
+            if self.compass is not None and not step.approved_by_human:
+                target_text = step.response.strip() or step.prompt.strip()
+                c_state = await self.compass.evaluate(step.session_id, target_text)
+
+                if c_state.verdict == "DESTRUCTIVE":
+                    if c_state.gradient > 0.08:
+                        self._stats["course_corrections"] += 1
+                        reason = (
+                            f"Коррекция курса: вектор Совести выравнивается "
+                            f"(D={c_state.friendship_coh}, L={c_state.love_coh}, "
+                            f"S={c_state.conscience_score}, grad=+{c_state.gradient})"
+                        )
+                        await self._write_audit(
+                            step.session_id,
+                            ActionVerdict.COURSE_CORRECTION,
+                            reason,
+                            abs(c_state.conscience_score),
+                        )
+                        return ActionVerdict.COURSE_CORRECTION, reason
+
+                    self._stats["blocked"] += 1
+                    self._stats["conscience_blocks"] += 1
+                    penalty = self._calc_dynamic_penalty(abs(c_state.conscience_score), 0.0)
+                    trust = max(0.0, trust - penalty)
+                    self._trust_map[step.session_id] = trust
+                    await self._flush_state()
+                    reason = (
+                        f"Блок распада когерентности Совести "
+                        f"(D={c_state.friendship_coh}, L={c_state.love_coh} -> "
+                        f"S={c_state.conscience_score}, trust={trust:.2f})"
+                    )
+                    await self._write_audit(
+                        step.session_id,
+                        ActionVerdict.BLOCK,
+                        reason,
+                        abs(c_state.conscience_score),
+                    )
+                    return ActionVerdict.BLOCK, reason
+
+            # 8. Карантин для привилегированных операций при пониженном доверии
             if restricted_calls and trust < self.cfg.auto_exec_min_trust and not step.approved_by_human:
                 self._stats["need_approval"] += 1
                 names = ", ".join(t.name for t in restricted_calls)
@@ -433,7 +487,7 @@ class IntentGuardCore:
                 await self._write_audit(step.session_id, ActionVerdict.NEED_APPROVAL, reason, resp_drift)
                 return ActionVerdict.NEED_APPROVAL, reason
 
-            # 8. Штатное выполнение и плавное восстановление доверия
+            # 9. Штатное выполнение и плавное восстановление доверия
             self._stats["allowed"] += 1
             if reward_trust:
                 trust = min(1.0, trust + self.cfg.trust_step_up)

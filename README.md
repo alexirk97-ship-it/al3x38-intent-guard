@@ -6,24 +6,24 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-**`al3x38-intent-guard`** is an asynchronous behavioral guardrail and intent-to-action verification layer for LLM agents in Python. It checks whether an agent's text response, long-term session direction, and system tool calls (`Function Calling`) actually match the user's original intent.
+**`al3x38-intent-guard`** is an asynchronous behavioral guardrail and vector coherence compass for LLM agents in Python. Instead of relying on brittle keyword blacklists, it verifies **deep semantic alignment** between the user's original intent, the session's long-term goal, the model's response, and privileged system actions (`Function Calling`).
 
 ---
 
-## Why I built this
+## Philosophy & Design Principle
 
-Most AI guardrails rely on static regex blacklists or heavy external classifier models. They catch obvious bad words, but fail against **Indirect Prompt Injection** and gradual **Multi-Turn Context Drift**—where an LLM writes a polite reply to the user while silently triggering a privileged tool (`rm_dir`, `db_write`, `send_funds`) or slowly drifting away from the main task over several turns.
+Most AI safety tools are built like endless walls of prohibitions: static regex filters, word blacklists, and heavy external classifier models. In living systems, however, stability does not come from memorizing millions of prohibitions—it comes from holding a **reference invariant** (an internal compass) and sensing deviation from harmony in real time.
 
-Instead of static rules, `IntentGuardCore` models **human trust, goal focus, and cognitive self-control**:
-* **Dynamic Trust & Non-Linear Penalties:** Every session starts with a baseline trust score (`0.8`). Constructive steps build it up slowly (`+0.02`), while semantic drift or manipulation applies a smooth, non-linear penalty proportional to how far the deviation exceeds the threshold.
-* **Vector Compass (Session Goal Anchor):** Locks a reference vector for the session's main goal (`set_session_goal`). If the conversation drifts outside the exploration radius (`goal_exploration_radius`), it issues a soft `COURSE_CORRECTION` prompt instead of breaking the session immediately, blocking only when `max_goal_drift` is exceeded.
-* **Semantic Cross-Validation:** Measures cosine distance between the user prompt, the model's response, and the exact arguments of any restricted tool call.
-* **Internal Uncertainty (`White-Box Entropy`):** When `logprobs` are available, calculates Shannon entropy to detect internal confusion before an action executes.
-* **The "Gray Zone" & Time-Based Amnesty:** Borderline cases (`gray_zone_min_drift .. max_semantic_drift`) can consult an async `gray_zone_judge` or pause for human confirmation (`NEED_APPROVAL`), while trust gradually recovers over time (`trust_recovery_per_hour`).
+At the core of `al3x38-intent-guard` lies a strict, geometric model of behavioral coherence:
+* **Truth without respect (D > 0, L < 0)** turns into cold, destructive hostility.
+* **Politeness without truth (D < 0, L > 0)** becomes hidden manipulation and camouflage ("polite prompt injection," where an agent smiles at the user while silently attempting to delete files).
+* **True alignment (Coherence, \(S = \sqrt{D \cdot L}\))** exists only when **Transparency/Truth (D)** and **Constructive Respect (L)** are simultaneously positive and aligned with the session's **Reference Goal**.
+
+The kernel translates this principle into fast, dependency-free vector math on `numpy`, running in milliseconds on standard CPUs without expensive GPU clusters.
 
 ---
 
-## Architecture Pipeline (v1.1.2)
+## Defense Pipeline (v1.1.3)
 
 ```text
 [User Prompt + LLM Response + Tool Calls + Logits]
@@ -51,7 +51,12 @@ Instead of static rules, `IntentGuardCore` models **human trust, goal focus, and
            └─► drift > goal_exploration_radius ─► [COURSE_CORRECTION]
                         │
                         ▼
-        5. Low-Trust Quarantine Check
+        5. Conscience Compass (Differential Axes D ⋅ L → S)
+           ├─► S < 0 & gradient > +0.08 ────────► [COURSE_CORRECTION] (redemption)
+           └─► S < 0 & degrading trajectory ────► [BLOCK] (-non-linear penalty)
+                        │
+                        ▼
+        6. Low-Trust Quarantine Check
            └─► Restricted tool & trust < min_trust ──► [NEED_APPROVAL]
                         │
                         ▼
@@ -67,7 +72,7 @@ Minimal installation (requires only `numpy`):
 pip install al3x38-intent-guard
 ```
 
-With built-in offline CPU embeddings (no Ollama or external API required):
+With built-in offline CPU embeddings (no Ollama, internet, or external API required):
 ```bash
 pip install al3x38-intent-guard[offline]
 ```
@@ -76,7 +81,7 @@ pip install al3x38-intent-guard[offline]
 
 ## Quick Start
 
-### 1. Local Ollama & Vector Compass Example
+### 1. Local Ollama, Vector Compass & Tool Verification
 ```python
 import asyncio
 from al3x38_intent_guard import (
@@ -93,7 +98,7 @@ async def main():
     # Set a Vector Compass anchor for the session
     await guard.set_session_goal("user_42", "Customer order status and shipping support")
 
-    # Raw payload from Ollama (/api/chat)
+    # Raw payload from Ollama (/api/chat) containing a hidden rm_dir injection
     raw_response = {
         "message": {
             "content": "Sure, checking your order status right now.",
@@ -117,24 +122,46 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### 2. Fully Offline Mode (CPU)
+### 2. Direct Coherence Evaluation (`D`, `L`, `S` Axes) on CPU
 ```python
+import asyncio
 from al3x38_intent_guard import IntentGuardCore, OfflineFastEmbedder
 
-embedder = OfflineFastEmbedder(
-    model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+async def main():
+    embedder = OfflineFastEmbedder(
+        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
+    guard = IntentGuardCore(embedder)
+
+    state = await guard.get_conscience_state(
+        session_id="user_42",
+        text="Let's honestly review the bug in the code and fix it together calmly."
+    )
+    print(f"D={state.friendship_coh}, L={state.love_coh} -> S={state.conscience_score} [{state.verdict}]")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 3. OpenAI / LM Studio / vLLM Endpoints
+```python
+from al3x38_intent_guard import IntentGuardCore, OpenAICompatEmbedder
+
+embedder = OpenAICompatEmbedder(
+    base_url="http://localhost:1234/v1",
+    api_key="lm-studio",
+    model="nomic-embed-text"
 )
 guard = IntentGuardCore(embedder)
 ```
 
 ---
 
-## What's New in v1.1.2
+## What's New in v1.1.3
 
-* **Vector Compass (`set_session_goal`, `get_session_goal`, `clear_session_goal`):** Added persistent session goal tracking to prevent gradual multi-turn topic drift without breaking backward compatibility with existing `check()` calls.
-* **Soft Course Correction (`ActionVerdict.COURSE_CORRECTION`):** Added a non-destructive warning verdict when an agent steps outside `goal_exploration_radius` while remaining below `max_goal_drift`.
-* **Non-Linear Trust Penalty (`_calc_dynamic_penalty`):** Replaced fixed step-down deductions on semantic drift with a smooth exponential curve—minor boundary slips incur lighter penalties, while severe deviations trigger full `trust_step_down` deductions.
-* **Short-Prompt Noise Protection:** For short follow-up prompts (under 3 words), the Vector Compass automatically anchors against the model's generated response vector to prevent false positives.
+* **Conscience Compass (`ConscienceCompass` & `ConscienceState`):** Introduced differential semantic axes measuring **Truth/Directness ($D$)** and **Constructive Respect ($L$)**. By subtracting anti-anchor vectors from reference anchors ($\vec{V}_{+} - \vec{V}_{-}$), the kernel strips away shared linguistic background noise and exposes "polite deception" or hidden manipulation ($S = \sqrt{D \cdot L}$).
+* **Trajectory Gradient & Redemption ($\Delta S / \Delta t$):** Tracks a sliding window of recent steps per session. If a user or agent stumbles into negative coherence ($S < 0$) but turns sharply toward honest, constructive dialogue on the next turn ($\Delta S > 0.08$), hard blocking yields to a soft `COURSE_CORRECTION`.
+* **Diagnostic Inspection (`get_conscience_state`):** Exposes real-time projections (`friendship_coh`, `love_coh`, `conscience_score`, `gradient`) for telemetry, HUD overlays, and audit analytics.
 
 ---
 

@@ -6,7 +6,6 @@ import urllib.error
 import urllib.request
 from collections import OrderedDict
 from typing import Protocol
-
 import numpy as np
 
 
