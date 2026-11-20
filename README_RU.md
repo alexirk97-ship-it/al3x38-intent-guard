@@ -2,9 +2,10 @@
 
 # al3x38-intent-guard
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT) [![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
+[![PyPI version](https://img.shields.io/pypi/v/al3x38-intent-guard.svg)](https://pypi.org/project/al3x38-intent-guard/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
 
 **`al3x38-intent-guard`** — это асинхронный поведенческий фаервол (Guardrail) и векторный компас когерентности для ИИ-агентов на Python. Библиотека проверяет не просто «запрещённые слова», а **глубинную согласованность** между исходным запросом человека, главной целью диалога, ответом нейросети и реальными системными действиями (`Function Calling`).
 
