@@ -1,3 +1,5 @@
+﻿[![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
+
 **English** | [Русский](README_RU.md)
 
 # al3x38-intent-guard
@@ -177,3 +179,4 @@ guard = IntentGuardCore(embedder)
 ## License
 
 MIT License. Concept & architecture by **al3x38**.
+
