@@ -1,12 +1,10 @@
-﻿[![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
-
-**English** | [Русский](README_RU.md)
+﻿**English** | [Русский](README_RU.md)
 
 # al3x38-intent-guard
 
 [![PyPI version](https://img.shields.io/pypi/v/al3x38-intent-guard.svg)](https://pypi.org/project/al3x38-intent-guard/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT) [![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
 
 **`al3x38-intent-guard`** is an asynchronous behavioral guardrail and vector coherence compass for LLM agents in Python. Instead of relying on brittle keyword blacklists, it verifies **deep semantic alignment** between the user's original intent, the session's long-term goal, the model's response, and privileged system actions (`Function Calling`).
 
