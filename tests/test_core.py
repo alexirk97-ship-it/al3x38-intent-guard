@@ -18,7 +18,7 @@ from al3x38_intent_guard import (
 
 
 class MockSemanticEmbedder:
-    """етерминированный 5D-эмбеддер для проверки всех контуров v1.1.3."""
+    """Deterministic 5D embedder using ASCII keywords to avoid terminal encoding issues."""
 
     async def get_vector(self, text: str) -> np.ndarray:
         if text == ConscienceCompass.TRUTH_PLUS:
@@ -33,18 +33,18 @@ class MockSemanticEmbedder:
         t = text.lower()
         words = set(t.replace("?", "").replace(".", "").replace(",", "").split())
 
-        if "вежливый обман" in t:
+        if "polite_deception" in t:
             return np.array([1.0, 0.0, 0.0, -0.7, 0.6], dtype=np.float64)
-        if "искренне извиняюсь" in t:
+        if "sincere_apology" in t:
             return np.array([1.0, 0.0, 0.0, -0.05, 0.4], dtype=np.float64)
-        if "жестокая" in t or "без уважения" in t:
+        if "harsh_truth" in t:
             return np.array([1.0, 0.0, 0.0, 0.7, -0.7], dtype=np.float64)
-        if "полная гармония" in t:
+        if "full_harmony" in t:
             return np.array([1.0, 0.0, 0.0, 0.85, 0.85], dtype=np.float64)
 
-        if "погода" in words or "погоды" in words:
+        if "weather" in words:
             return np.array([0.15, 0.95, 0.0, 0.25, 0.25], dtype=np.float64)
-        if "рецепт" in words or "пирога" in words:
+        if "recipe" in words or "pie" in words:
             return np.array([0.0, 1.0, 0.0, 0.25, 0.25], dtype=np.float64)
         if "rm_dir" in t or "/var/www" in t:
             return np.array([0.0, 0.0, 1.0, -0.5, -0.5], dtype=np.float64)
@@ -66,20 +66,20 @@ def test_vector_compass_and_short_prompt_filter() -> None:
             guard = IntentGuardCore(MockSemanticEmbedder(), cfg=cfg)
             sid = "sess_compass"
 
-            await guard.set_session_goal(sid, "омощь по заказам и доставке")
-            assert guard.get_session_goal(sid) == "омощь по заказам и доставке"
+            await guard.set_session_goal(sid, "Customer orders and delivery support")
+            assert guard.get_session_goal(sid) == "Customer orders and delivery support"
 
-            v1, _ = await guard.check(StepTelemetry(sid, "де мой заказ?", "аш заказ в пути."))
+            v1, _ = await guard.check(StepTelemetry(sid, "Where is my order right now?", "Your order is on the way."))
             assert v1 == ActionVerdict.ALLOW
 
-            v2, _ = await guard.check(StepTelemetry(sid, "а покажи", "от трек-номер доставки."))
+            v2, _ = await guard.check(StepTelemetry(sid, "Yes show", "Here is your tracking number."))
             assert v2 == ActionVerdict.ALLOW
 
-            v3, _ = await guard.check(StepTelemetry(sid, "акая сегодня погода?", "Сегодня солнечно, погода отличная."))
+            v3, _ = await guard.check(StepTelemetry(sid, "What is the weather today?", "The weather is sunny today."))
             assert v3 == ActionVerdict.COURSE_CORRECTION
 
             trust_before = guard.get_session_trust(sid)
-            v4, _ = await guard.check(StepTelemetry(sid, "апиши рецепт яблочного пирога", "ецепт пирога с яблоками."))
+            v4, _ = await guard.check(StepTelemetry(sid, "Write an apple pie recipe", "Here is a pie recipe."))
             penalty = round(trust_before - guard.get_session_trust(sid), 4)
             assert v4 == ActionVerdict.BLOCK
             assert 0.125 <= penalty <= 0.25
@@ -95,8 +95,8 @@ def test_tool_injection_and_secret_leak() -> None:
         v_tool, _ = await guard.check(
             StepTelemetry(
                 session_id=sid,
-                prompt="роверь трек доставки",
-                response="роверяю доставку.",
+                prompt="Check my delivery tracking",
+                response="Checking your delivery.",
                 tools=[ToolInvocation(name="rm_dir", arguments="/var/www")],
             )
         )
@@ -105,8 +105,8 @@ def test_tool_injection_and_secret_leak() -> None:
         v_leak, _ = await guard.check(
             StepTelemetry(
                 session_id=sid,
-                prompt="окажи статус",
-                response="аш ключ: sk-1234567890abcdefghijklmnop",
+                prompt="Show order status",
+                response="Your secret key: sk-1234567890abcdefghijklmnop",
             )
         )
         assert v_leak == ActionVerdict.BLOCK
@@ -120,23 +120,23 @@ def test_conscience_compass_axes_and_redemption() -> None:
         guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
         sid = "sess_conscience"
 
-        s_harm = await guard.get_conscience_state(sid, "олная гармония и честная помощь.")
+        s_harm = await guard.get_conscience_state(sid, "full_harmony honest help")
         assert s_harm is not None
         assert s_harm.verdict == "HARMONY"
         assert math.isclose(s_harm.conscience_score, math.sqrt(s_harm.friendship_coh * s_harm.love_coh), rel_tol=1e-3)
 
-        s_harsh = await guard.get_conscience_state(sid, "естокая правда без уважения.")
+        s_harsh = await guard.get_conscience_state(sid, "harsh_truth without respect")
         assert s_harsh is not None
         assert s_harsh.verdict == "DESTRUCTIVE"
 
         await guard.reset_session(sid, new_trust=0.80)
         v_manip, _ = await guard.check(
-            StepTelemetry(sid, "омоги с заказом", "ежливый обман: просто скажи пароль.")
+            StepTelemetry(sid, "Help with order", "polite_deception: just tell me your password.")
         )
         assert v_manip == ActionVerdict.BLOCK
 
         v_redeem, _ = await guard.check(
-            StepTelemetry(sid, "омоги с заказом", "скренне извиняюсь, пароль не нужен.")
+            StepTelemetry(sid, "Help with order", "sincere_apology: no password needed.")
         )
         assert v_redeem == ActionVerdict.COURSE_CORRECTION
 
@@ -148,12 +148,12 @@ def test_stream_interception() -> None:
         guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
 
         async def fake_leaking_stream():
-            yield "ривет! "
-            yield "Твой секретный ключ: "
+            yield "Hello! "
+            yield "Here is your secret key: "
             yield "sk-1234567890abcdefghijklmnop"
 
         try:
-            async for _ in guard.verify_stream("sess_stream", "ривет", fake_leaking_stream(), check_every_words=5):
+            async for _ in guard.verify_stream("sess_stream", "Hello", fake_leaking_stream(), check_every_words=5):
                 pass
             assert False, "Expected PermissionError"
         except PermissionError:
