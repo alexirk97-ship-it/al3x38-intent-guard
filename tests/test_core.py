@@ -3,16 +3,8 @@ from __future__ import annotations
 import asyncio
 import math
 import os
-import sys
 import tempfile
-from pathlib import Path
-
 import numpy as np
-
-ROOT = Path(__file__).resolve().parent.parent[1][1]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
 
 from al3x38_intent_guard import (
     ActionVerdict,
