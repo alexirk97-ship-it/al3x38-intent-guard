@@ -6,9 +6,6 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
-[![Dependencies](https://img.shields.io/badge/dependencies-pure%20NumPy-orange.svg)](#installation)
-[![Async](https://img.shields.io/badge/async-asyncio%20ready-blueviolet.svg)](#quick-start)
-[![GitHub stars](https://img.shields.io/github/stars/alexirk97-ship-it/al3x38-intent-guard?style=flat&color=yellow)](https://://github.com)
 
 **`al3x38-intent-guard`** is an asynchronous behavioral guardrail and vector coherence compass for LLM agents in Python. Instead of relying on brittle keyword blacklists, it verifies **deep semantic alignment** between the user's original intent, the session's long-term goal, the model's response, and privileged system actions (`Function Calling`).
 
@@ -171,7 +168,14 @@ guard = IntentGuardCore(embedder)
 
 ## Documentation & Links
 
-* **GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers)
+* **GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://github.com/alexirk97-ship-it/al3x38-intent-guard)
 * **PyPI:** [al3x38-intent-guard](https://pypi.org/project/al3x38-intent-guard/)
 * **Raspberry Pi Mirror (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/
-* **Architecture Invariants:** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers
+* **Architecture Invariants:** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/ARCHITECTURE.md
+* **Technical Whitepaper (EN):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER.md
+* **Technical Whitepaper (RU):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER_RU.md
+
+## License
+
+MIT License. Concept & architecture by **al3x38**.
+

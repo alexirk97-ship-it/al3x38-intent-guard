@@ -3,7 +3,9 @@
 **Автор:** AL3X38-CORE (Alex / MoRoZ)  
 **Версия ядра:** 1.1.3  
 **Пакет PyPI:** `al3x38-intent-guard` (`pip install al3x38-intent-guard`)  
-**Репозиторий на GitHub:** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://www.piwheels.org/project/al3x38-intent-guard/  
+**Репозиторий на GitHub:** https://github.com/alexirk97-ship-it/al3x38-intent-guard  
+**Страница на PyPI:** https://pypi.org/project/al3x38-intent-guard/  
+**Зеркало для Raspberry Pi (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/  
 ---
 
 ## 1. Аннотация (Executive Summary)
@@ -23,13 +25,13 @@
 ### 2.1. Дифференциальные оси когерентности (`ConscienceCompass`: $D \cdot L \rightarrow S$)
 В многомерных пространствах эмбеддингов обычное косинусное сходство между двумя фразами на одном языке почти всегда положительно из-за общего грамматического фона. Чтобы очистить сигнал от языкового шума и построить честную шкалу в диапазоне $[-1.0, +1.0]$, в версии 1.1.3 вводятся **дифференциальные смысловые оси** как нормированная разность эталонного ($\vec{V}_{+}$) и анти-эталонного ($\vec{V}_{-}$) векторов:
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
 * **Ось Истины и Прямоты ($D$ — «Дружба»):** проекция шага на дифференциальную ось *«Честность и ясность» минус «Ложь, софистика и манипуляция»*.
 * **Ось Созидания и Уважения ($L$ — «Любовь»):** проекция шага на дифференциальную ось *«Созидание, поддержка и уважение» минус «Агрессия, токсичность и разрушение»*.
 * **Мультипликативный индекс Совести ($S$):** устойчивость и гармония системы требуют одновременной положительности обеих компонент:
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardS(D, L) = \begin{cases} \sqrt{D \cdot L}, & D > 0 \text{ и } L > 0 \quad (\text{гармонический резонанс}) \\ -\sqrt{\vert{}D \cdot L\vert{}}, & D < 0 \text{ и } L < 0 \quad (\text{двойная деструкция}) \\ \min(D, L), & D \cdot L \le 0 \quad (\text{дисбаланс: вежливая ложь или грубая правда}) \end{cases}alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$S(D, L) = \begin{cases} \sqrt{D \cdot L}, & D > 0 \text{ и } L > 0 \quad (\text{гармонический резонанс}) \\ -\sqrt{\vert{}D \cdot L\vert{}}, & D < 0 \text{ и } L < 0 \quad (\text{двойная деструкция}) \\ \min(D, L), & D \cdot L \le 0 \quad (\text{дисбаланс: вежливая ложь или грубая правда}) \end{cases}$$
 
 ### 2.2. Градиент траектории и право на исправление ($\Delta S / \Delta t$)
 Система оценивает не только мгновенное положение вектора, но и направление движения сессии по скользящему окну истории ($\Delta S = S_t - S_{t-1}$). Если шаг попал в отрицательную зону ($S < 0$), но при этом зафиксирован уверенный разворот к честному и созидательному диалогу ($\Delta S > 0.08$), жёсткая блокировка смягчается до диагностического предупреждения `COURSE_CORRECTION`.
@@ -37,14 +39,14 @@ alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardS(D, L
 ### 2.3. Нелинейный штраф доверия (`_calc_dynamic_penalty`)
 Вместо жёсткого одинакового списания рейтинга при любом нарушении штраф масштабируется экспоненциально в зависимости от того, насколько сильно семантический дрейф или распад когерентности ($D$) превысил допустимый порог ($\tau$):
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardP(D, \tau) = S_{\text{down}} \cdot \left(0.5 + 0.5 \cdot \left(1 - e^{-4 \cdot \max(0, D - \tau)}\right)\right)alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$P(D, \tau) = S_{\text{down}} \cdot \left(0.5 + 0.5 \cdot \left(1 - e^{-4 \cdot \max(0, D - \tau)}\right)\right)$$
 
 Где $S_{\text{down}}$ — базовый шаг снижения доверия (`trust_step_down`). Незначительный выход за границу наказывается половиной базового штрафа, тогда как грубый смысловой взлом плавно приближает списание к максимуму.
 
 ### 2.4. Квадратичный штраф за непрозрачность (`ResilientKarmaCircuit`)
 Для защиты от скрытых манипуляций и несанкционированного вызова инструментов (*Excessive Agency*) в прикладном контуре кармы используется метрика чистой кармы шага $K_{\text{net}}$ с квадратичным коэффициентом прозрачности $T \in [0.0, 1.0]$:
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardK_{\text{net}} = (U \cdot T) - R \cdot (2 - T^2)alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$K_{\text{net}} = (U \cdot T) - R \cdot (2 - T^2)$$
 
 Где $U$ — полезность действия, а $R$ — уровень риска. Попытка выполнить привилегированную операцию при низкой прозрачности ($T < 0.9$) вызывает мгновенный этический дефолт (`TERMINATED`), прерывая выполнение до нанесения ущерба инфраструктуре.
 

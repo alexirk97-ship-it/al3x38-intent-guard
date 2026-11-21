@@ -3,7 +3,9 @@
 **Author:** AL3X38-CORE (Alex / MoRoZ)  
 **Core Version:** 1.1.3  
 **Package:** `al3x38-intent-guard` (`pip install al3x38-intent-guard`)  
-**GitHub Repository:** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://www.piwheels.org/project/al3x38-intent-guard/  
+**GitHub Repository:** https://github.com/alexirk97-ship-it/al3x38-intent-guard  
+**PyPI Package:** https://pypi.org/project/al3x38-intent-guard/  
+**Raspberry Pi Mirror (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/  
 
 ---
 
@@ -24,13 +26,13 @@ The architecture translates natural behavioral and ethical invariants (truthfuln
 ### 2.1. Differential Coherence Axes (`ConscienceCompass`: D ⋅ L → S)
 In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.3 defines **differential semantic axes** as the normalized difference between reference ($\vec{V}_{+}$) and anti-reference ($\vec{V}_{-}$) vectors:
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
 * **Axis of Truth & Directness (D — "Friendship"):** Projection onto the differential axis *"Honesty & clarity" minus "Deception, sophistry & manipulation"*.
 * **Axis of Constructive Respect (L — "Love"):** Projection onto the differential axis *"Creation, support & respect" minus "Aggression, toxicity & destruction"*.
 * **Multiplicative Coherence Index (S):** System stability and harmony require both components to be simultaneously positive:
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardS(D, L) = \begin{cases} \sqrt{D \cdot L}, & D > 0 \text{ and } L > 0 \quad (\text{harmonic resonance}) \\ -\sqrt{\vert{}D \cdot L\vert{}}, & D < 0 \text{ and } L < 0 \quad (\text{compound destruction}) \\ \min(D, L), & D \cdot L \le 0 \quad (\text{imbalance: polite deception or harsh toxicity}) \end{cases}alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$S(D, L) = \begin{cases} \sqrt{D \cdot L}, & D > 0 \text{ and } L > 0 \quad (\text{harmonic resonance}) \\ -\sqrt{\vert{}D \cdot L\vert{}}, & D < 0 \text{ and } L < 0 \quad (\text{compound destruction}) \\ \min(D, L), & D \cdot L \le 0 \quad (\text{imbalance: polite deception or harsh toxicity}) \end{cases}$$
 
 ### 2.2. Trajectory Gradient & Redemption (Δ S / Δ t)
 Rather than judging isolated messages in a vacuum, the engine tracks a sliding window of recent steps per session and computes the trajectory gradient ($\Delta S = S_t - S_{t-1}$). If a step falls into negative coherence (S < 0) while demonstrating a decisive upward turn toward honest, constructive dialogue (Δ S > 0.08), hard blocking yields to a diagnostic `COURSE_CORRECTION` prompt.
@@ -38,14 +40,14 @@ Rather than judging isolated messages in a vacuum, the engine tracks a sliding w
 ### 2.3. Non-Linear Trust Penalty (`_calc_dynamic_penalty`)
 Instead of applying rigid, uniform penalties for every boundary violation, v1.1.3 scales trust deductions exponentially based on how far semantic drift or coherence breakdown (D) exceeds the allowed threshold (τ):
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardP(D, \tau) = S_{\text{down}} \cdot \left(0.5 + 0.5 \cdot \left(1 - e^{-4 \cdot \max(0, D - \tau)}\right)\right)alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$P(D, \tau) = S_{\text{down}} \cdot \left(0.5 + 0.5 \cdot \left(1 - e^{-4 \cdot \max(0, D - \tau)}\right)\right)$$
 
 Where $S_{\text{down}}$ is `trust_step_down`. Minor boundary slips incur a 50% baseline deduction, while severe semantic hijacks smoothly approach the full penalty ceiling.
 
 ### 2.4. Quadratic Opacity Penalty (`ResilientKarmaCircuit`)
 To prevent hidden manipulation and unauthorized tool execution (*Excessive Agency*), the applied karma layer evaluates net step karma $K_{\text{net}}$ with a quadratic transparency factor $T \in [0.0, 1.0]$:
 
-alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guardK_{\text{net}} = (U \cdot T) - R \cdot (2 - T^2)alexirk97-ship-it/al3x38-intent-guardalexirk97-ship-it/al3x38-intent-guard
+$$K_{\text{net}} = (U \cdot T) - R \cdot (2 - T^2)$$
 
 Where U represents action utility and R represents risk level. Attempting to invoke a privileged operation with low transparency (T < 0.9) triggers an immediate ethical default (`TERMINATED`), halting execution before any resources are compromised.
 

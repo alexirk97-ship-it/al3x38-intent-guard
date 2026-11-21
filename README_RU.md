@@ -6,9 +6,6 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://static.pepy.tech/personalized-badge/al3x38-intent-guard?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/al3x38-intent-guard)
-[![Dependencies](https://img.shields.io/badge/dependencies-pure%20NumPy-orange.svg)](#installation)
-[![Async](https://img.shields.io/badge/async-asyncio%20ready-blueviolet.svg)](#quick-start)
-[![GitHub stars](https://img.shields.io/github/stars/alexirk97-ship-it/al3x38-intent-guard?style=flat&color=yellow)](https://://github.com)
 
 **`al3x38-intent-guard`** — это асинхронный поведенческий фаервол (Guardrail) и векторный компас когерентности для ИИ-агентов на Python. Библиотека проверяет не просто «запрещённые слова», а **глубинную согласованность** между исходным запросом человека, главной целью диалога, ответом нейросети и реальными системными действиями (`Function Calling`).
 
@@ -171,7 +168,14 @@ guard = IntentGuardCore(embedder)
 
 ## Документация и ссылки
 
-* **Репозиторий на GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers)
+* **Репозиторий на GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://github.com/alexirk97-ship-it/al3x38-intent-guard)
 * **Страница пакета на PyPI:** [al3x38-intent-guard](https://pypi.org/project/al3x38-intent-guard/)
 * **Зеркало для Raspberry Pi (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/
-* **Архитектурные инварианты:** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers
+* **Архитектурные инварианты:** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/ARCHITECTURE.md
+* **Техническая спецификация Whitepaper (EN):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER.md
+* **Техническая спецификация Whitepaper (RU):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER_RU.md
+
+
+## Лицензия
+
+MIT License. Автор концепции и архитектуры: **al3x38**.
