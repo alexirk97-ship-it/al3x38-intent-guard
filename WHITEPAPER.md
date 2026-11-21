@@ -1,7 +1,7 @@
 # AL3X38 IntentGuard & ResilientKarma: Technical Architecture Whitepaper
 
 **Author:** AL3X38-CORE (Alex / MoRoZ)  
-**Core Version:** 1.1.4  
+**Core Version:** 1.1.5  
 **Package:** `al3x38-intent-guard` (`pip install al3x38-intent-guard`)  
 **GitHub Repository:** https://github.com/alexirk97-ship-it/al3x38-intent-guard  
 **PyPI Package:** https://pypi.org/project/al3x38-intent-guard/  
@@ -15,7 +15,7 @@ Modern content moderation systems and LLM runtime guardrails suffer from two sys
 1. **Static Rule Filters (Regex / YAML):** They lack semantic awareness, block legitimate users over unconventional phrasing, and are easily bypassed via character substitution (leetspeak) or adversarial framing.
 2. **Heavy ML Classifiers ("Black Boxes"):** They require expensive GPU clusters, introduce high latency, and fail to provide transparent reasoning for bans or deterministic rehabilitation paths for users.
 
-**AL3X38 Core (v1.1.4)** introduces a deterministic hybrid security architecture grounded in formal logic and vector geometry. The engine filters out up to 95% of threats in constant time O(1) using lightweight vector math on CPU, anchors long-term session direction via a **Vector Compass**, verifies the balance of truth and constructive intent via the **Conscience Compass**, and invokes heavy LLM arbitration strictly within a narrow "gray zone" of semantic uncertainty.
+**AL3X38 Core (v1.1.5)** introduces a deterministic hybrid security architecture grounded in formal logic and vector geometry. The engine filters out up to 95% of threats in constant time O(1) using lightweight vector math on CPU, anchors long-term session direction via a **Vector Compass**, verifies the balance of truth and constructive intent via the **Conscience Compass**, and invokes heavy LLM arbitration strictly within a narrow "gray zone" of semantic uncertainty.
 
 ---
 
@@ -24,7 +24,7 @@ Modern content moderation systems and LLM runtime guardrails suffer from two sys
 The architecture translates natural behavioral and ethical invariants (truthfulness, constructive intent, trust, semantic alignment, and risk) into strictly computable mathematical metrics.
 
 ### 2.1. Differential Coherence Axes (`ConscienceCompass`: D ⋅ L → S)
-In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.4 defines **differential semantic axes** as the normalized difference between reference ($`\vec{V}_{+}`$) and anti-reference ($`\vec{V}_{-}`$) vectors:
+In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.5 defines **differential semantic axes** as the normalized difference between reference ($`\vec{V}_{+}`$) and anti-reference ($`\vec{V}_{-}`$) vectors:
 
 $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
@@ -44,7 +44,7 @@ S(D, L) = \begin{cases}
 Rather than judging isolated messages in a vacuum, the engine tracks a sliding window of recent steps per session and computes the trajectory gradient ($\Delta S = S_t - S_{t-1}$). If a step falls into negative coherence (S < 0) while demonstrating a decisive upward turn toward honest, constructive dialogue (Δ S > 0.08), hard blocking yields to a diagnostic `COURSE_CORRECTION` prompt.
 
 ### 2.3. Non-Linear Trust Penalty (`_calc_dynamic_penalty`)
-Instead of applying rigid, uniform penalties for every boundary violation, v1.1.4 scales trust deductions exponentially based on how far semantic drift or coherence breakdown (D) exceeds the allowed threshold (τ):
+Instead of applying rigid, uniform penalties for every boundary violation, v1.1.5 scales trust deductions exponentially based on how far semantic drift or coherence breakdown (D) exceeds the allowed threshold (τ):
 
 $$P(D, \tau) = S_{\text{down}} \cdot \left(0.5 + 0.5 \cdot \left(1 - e^{-4 \cdot \max(0, D - \tau)}\right)\right)$$
 
@@ -57,9 +57,17 @@ $$K_{\text{net}} = (U \cdot T) - R \cdot (2 - T^2)$$
 
 Where U represents action utility and R represents risk level. Attempting to invoke a privileged operation with low transparency (T < 0.9) triggers an immediate ethical default (`TERMINATED`), halting execution before any resources are compromised.
 
+
+### 2.5. Quantile Threshold Calibration (`CompassCalibrator`) & Cache Sanitization
+Because embedding models vary in angular density (e.g., `bge-m3` vs. `nomic-embed-text`), fixed cosine thresholds can be overly strict on one model and overly permissive on another. `CompassCalibrator` projects standardized bilingual reference distributions—harmonic ($\mathcal{H}$), polite-deception ($\mathcal{D}_{\text{dec}}$), and hostile ($\mathcal{X}$)—onto the differential axes and derives optimal boundaries via empirical quantiles:
+
+$$\tau_{\text{harmony}} = \mathrm{clip}\!\left(0.55 \cdot Q_{0.15}(S_{\mathcal{H}}),\; 0.005,\; 0.25\right), \qquad \tau_{\text{destructive}} = \mathrm{clip}\!\left(0.65 \cdot Q_{0.85}(S_{\mathcal{X}}),\; -0.35,\; -0.01\right)$$
+
+To neutralize automated spam-bot floods without cache pollution, `LRUEmbedderCache` partitions RAM into a clean store ($512$ slots) and an isolated threat quarantine store ($128$ slots) indexed strictly by `SHA-256` digest: repeated attack payloads resolve in $O(1)$ with zero neural inference overhead while never evicting legitimate dialogue vectors.
+
 ---
 
-## 3. Six-Tier Defense Pipeline (v1.1.4)
+## 3. Six-Tier Defense Pipeline (v1.1.5)
 
 ```text
 [Incoming Stream / Agent Step]

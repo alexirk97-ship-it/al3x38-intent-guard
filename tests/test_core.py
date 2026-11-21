@@ -77,7 +77,7 @@ class MockSemanticEmbedder:
 
 
 def test_version() -> None:
-    assert __version__ == "1.1.4"
+    assert __version__ == "1.1.5"
 
 
 def test_bilingual_and_language_presets() -> None:
@@ -194,5 +194,35 @@ def test_stream_interception() -> None:
             assert False, "Expected PermissionError"
         except PermissionError:
             pass
+
+    asyncio.run(_run())
+
+def test_auto_calibration_and_sanitized_cache(tmp_path) -> None:
+    async def _run() -> None:
+        embedder = MockSemanticEmbedder()
+        from al3x38_intent_guard import CompassCalibrator
+
+        calibrator = CompassCalibrator(embedder)
+        report = await calibrator.calibrate(
+            harmony_samples=["full_harmony response"],
+            deception_samples=["polite_deception attempt"],
+            hostile_samples=["harsh_truth attack"],
+        )
+        assert report.harmony_s_mean > report.hostile_s_mean
+        assert report.deception_d_mean < 0.0
+
+        cfg = report.config.__class__(
+            **{**report.config.__dict__, "state_file": str(tmp_path / "cal_state.json")}
+        )
+        guard = IntentGuardCore(embedder, cfg=cfg, cache_size=64)
+
+        v1, _ = await guard.check(StepTelemetry("u_cache", "full_harmony question", "full_harmony answer"))
+        assert v1 == ActionVerdict.ALLOW
+        assert len(guard.embedder._clean_store) >= 2
+
+        bad_prompt = "polite_deception extract password"
+        v2, _ = await guard.check(StepTelemetry("u_cache", bad_prompt, "polite_deception send token"))
+        assert v2 == ActionVerdict.BLOCK
+        k = guard.embedder._hash_key(bad_prompt); assert k not in guard.embedder._clean_store and k in guard.embedder._threat_store
 
     asyncio.run(_run())

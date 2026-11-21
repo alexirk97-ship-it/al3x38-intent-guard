@@ -1,4 +1,4 @@
-# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.4)
+# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.5)
 
 This document defines the foundational philosophy, mathematical invariants, and architectural boundaries of the **al3x38** behavioral alignment kernel. Every module, driver, or integration built on top of this core follows one overarching rule: **measure alignment against natural invariants rather than patching symptoms with endless static rules.**
 
@@ -36,7 +36,7 @@ The kernel evaluates every step across four orthogonal signal channels:
 4. **Anchor (`Goal Vector`):** Cosine distance between the current step and the session's persistent reference objective (`set_session_goal`).
 
 ### II. Differential Coherence Axes (`ConscienceCompass`: $D \cdot L \rightarrow S$)
-Raw cosine similarity between two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To eliminate linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.4 introduces **differential semantic axes**:
+Raw cosine similarity between two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To eliminate linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.5 introduces **differential semantic axes**:
 
 $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
@@ -66,5 +66,7 @@ Alignment requires synchronization between **Thought**, **Word**, and **Deed**. 
 
 All applied intelligence connects to the core through minimal, dependency-free interfaces:
 * **Embedder Backend (`Embedder`):** Any async class implementing `get_vector(text: str) -> np.ndarray`, wrapped automatically in `LRUEmbedderCache` for $O(1)$ repeat lookups on CPU.
+* **Adaptive Quantile Calibration (`CompassCalibrator`):** Different embedding models exhibit distinct cosine anisotropy cones. Calling `IntentGuardCore.auto_calibrate(embedder)` evaluates bilingual reference sets (harmony, polite deception, hostility) and derives model-specific thresholds via empirical quantiles ($P_{15}$ of harmony coherence and $P_{85}$ of hostile/deception projections).
+* **Dual-Contour Anti-Flood Cache (`LRUEmbedderCache`):** Separates vectors into a clean LRU store (`512` slots) and an isolated threat quarantine store (`128` slots) indexed by `SHA-256`. Repeated spam/DDoS prompts resolve in $O(1)$ without hitting the neural embedder or evicting legitimate conversation anchors.
 * **Gray-Zone Arbitrator (`gray_zone_judge`):** Optional async callback invoked exclusively when semantic drift falls inside the borderline corridor (`gray_zone_min_drift .. max_semantic_drift`).
 * **Stream Interceptor (`verify_stream`):** Token-level sliding window validator that halts streaming generation mid-flight upon secret leak or semantic drift, rewarding session trust strictly once upon full, clean completion.

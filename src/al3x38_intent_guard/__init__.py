@@ -1,3 +1,7 @@
+from .calibration import (
+    CalibrationReport,
+    CompassCalibrator,
+)
 from .conscience_compass import (
     ConscienceCompass,
     ConscienceState,
@@ -23,11 +27,13 @@ from .parsers import (
     parse_openai_payload,
 )
 
-__version__ = "1.1.4"
+__version__ = "1.1.5"
 
 __all__ = [
     "DEFAULT_SECRET_PATTERNS",
     "ActionVerdict",
+    "CalibrationReport",
+    "CompassCalibrator",
     "ConscienceCompass",
     "ConscienceState",
     "Embedder",

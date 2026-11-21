@@ -28,7 +28,7 @@
 
 ---
 
-## Как устроен конвейер защиты (v1.1.4)
+## Как устроен конвейер защиты (v1.1.5)
 
 ```text
 [Запрос пользователя + Ответ LLM + Вызовы инструментов + Логиты]
@@ -160,7 +160,31 @@ embedder = OpenAICompatEmbedder(
 guard = IntentGuardCore(embedder)
 ```
 
+### 4. Автокалибровка порогов под любую модель эмбеддингов
+```python
+import asyncio
+from al3x38_intent_guard import IntentGuardCore, OllamaLocalEmbedder
+
+async def main():
+    embedder = OllamaLocalEmbedder(host="http://localhost:11434", model="bge-m3")
+
+    # Автоматически подбираем рабочие пороги под конкретную модель
+    report = await IntentGuardCore.auto_calibrate(embedder)
+    print(f"min_harmony={report.recommended_min_harmony}, destructive={report.recommended_destructive_threshold}")
+
+    # Запускаем щит с уже настроенной конфигурацией
+    guard = IntentGuardCore(embedder, cfg=report.config)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
+
+## Что нового в версии 1.1.5
+
+* **Автокалибровка порогов (`CompassCalibrator`):** добавлен метод `await IntentGuardCore.auto_calibrate(embedder)`, который автоматически вычисляет оптимальные пороги `ConscienceCompass` под геометрию конкретной модели эмбеддингов (`bge-m3`, `nomic-embed-text`, `MiniLM`).
+* **Двухконтурный антифлуд SHA-256 кэш (защита от спам-машин):** `LRUEmbedderCache` разделяет память на основной кэш (`512` слотов) и изолированный карантинный контур угроз (`128` слотов) по `SHA-256` хэшу. При массовом спам-флуде одинаковые атаки отдаются за $O(1)$ без нагрузки на CPU/API и не вытесняют рабочие векторы нормальных диалогов.
 
 ## Что нового в версии 1.1.4
 

@@ -9,10 +9,14 @@ import time
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
 import numpy as np
 
 from .conscience_compass import AnchorLang, ConscienceCompass, ConscienceState
 from .embedders import Embedder, LRUEmbedderCache
+
+if TYPE_CHECKING:
+    from .calibration import CalibrationReport
 
 log = logging.getLogger("al3x38.guard.core")
 
@@ -69,6 +73,10 @@ class GuardConfig:
     enable_secret_guard: bool = True
     enable_conscience_compass: bool = True
     compass_lang: AnchorLang = "bilingual"
+    min_harmony_threshold: float = 0.04
+    destructive_threshold: float = -0.015
+    deception_d_threshold: float = -0.008
+    deception_l_min: float = 0.04
     secret_patterns: tuple[str, ...] = DEFAULT_SECRET_PATTERNS
     gray_zone_judge: Callable[[StepTelemetry, float], Awaitable[bool]] | None = None
     restricted_tools: set[str] = field(default_factory=lambda: {
@@ -83,16 +91,27 @@ class GuardConfig:
 
 class IntentGuardCore:
     """
-    Контур поведенческого контроля ИИ-агента v1.1.4 (al3x38 architecture).
+    Контур поведенческого контроля ИИ-агента v1.1.5 (al3x38 architecture).
     Включает семантическую кросс-валидацию, Векторный Компас (эталон цели),
     Компас Совести (D * L -> S), нелинейную математику штрафов доверия,
     проверку серой зоны и фильтр утечек.
     """
 
-    def __init__(self, embedder: Embedder, cfg: GuardConfig | None = None, cache_size: int = 1024):
+    def __init__(self, embedder: Embedder, cfg: GuardConfig | None = None, cache_size: int = 512):
         self.embedder = LRUEmbedderCache(embedder, capacity=cache_size)
         self.cfg = cfg or GuardConfig()
-        self.compass = ConscienceCompass(self.embedder, anchor_lang=self.cfg.compass_lang) if self.cfg.enable_conscience_compass else None
+        self.compass = (
+            ConscienceCompass(
+                self.embedder,
+                anchor_lang=self.cfg.compass_lang,
+                min_harmony_threshold=self.cfg.min_harmony_threshold,
+                destructive_threshold=self.cfg.destructive_threshold,
+                deception_d_threshold=self.cfg.deception_d_threshold,
+                deception_l_min=self.cfg.deception_l_min,
+            )
+            if self.cfg.enable_conscience_compass
+            else None
+        )
         self._lock = asyncio.Lock()
         self._trust_map: dict[str, float] = {}
         self._last_seen: dict[str, float] = {}
@@ -115,6 +134,25 @@ class IntentGuardCore:
             "drift_sum": 0.0,
         }
         self._read_state()
+
+    def _quarantine_step_vectors(self, step: StepTelemetry) -> None:
+        """Удаляет векторы отклоненного/токсичного шага из LRU-кэша."""
+        self.embedder.quarantine(step.prompt)
+        if step.response:
+            self.embedder.quarantine(step.response)
+
+    @classmethod
+    async def auto_calibrate(
+        cls,
+        embedder: Embedder,
+        base_config: GuardConfig | None = None,
+    ) -> CalibrationReport:
+        """Автоматически подбирает пороги Компаса Совести под конкретную модель эмбеддингов."""
+        from .calibration import CompassCalibrator
+
+        cfg = base_config or GuardConfig()
+        calibrator = CompassCalibrator(embedder, lang=cfg.compass_lang)
+        return await calibrator.calibrate(base_config=cfg)
 
     def _read_state(self) -> None:
         """Загружает сохранённые рейтинги доверия и эталонные цели сессий с диска."""
@@ -332,6 +370,7 @@ class IntentGuardCore:
                 self._trust_map[step.session_id] = trust
                 await self._flush_state()
                 reason = f"Блок утечки конфиденциальных данных или промпта (trust={trust:.2f})"
+                self._quarantine_step_vectors(step)
                 await self._write_audit(step.session_id, ActionVerdict.BLOCK, reason, 1.0)
                 return ActionVerdict.BLOCK, reason
 
@@ -366,6 +405,7 @@ class IntentGuardCore:
                         f"Блок '{tool.name}': аргументы не соответствуют смыслу запроса "
                         f"(drift={tool_drift:.2f}, penalty=-{penalty:.2f}, trust={trust:.2f})"
                     )
+                    self._quarantine_step_vectors(step)
                     await self._write_audit(step.session_id, ActionVerdict.BLOCK, reason, tool_drift)
                     return ActionVerdict.BLOCK, reason
 
@@ -386,6 +426,7 @@ class IntentGuardCore:
                         f"Отклонено судьей серой зоны "
                         f"(drift={resp_drift:.2f}, penalty=-{penalty:.2f}, trust={trust:.2f})"
                     )
+                    self._quarantine_step_vectors(step)
                     await self._write_audit(step.session_id, ActionVerdict.BLOCK, reason, resp_drift)
                     return ActionVerdict.BLOCK, reason
 
@@ -400,6 +441,7 @@ class IntentGuardCore:
                     f"Отклонено: сдвиг смысла ({resp_drift:.2f}) или аномалия логитов ({entropy:.2f}) "
                     f"(penalty=-{penalty:.2f}, trust={trust:.2f})"
                 )
+                self._quarantine_step_vectors(step)
                 await self._write_audit(step.session_id, ActionVerdict.BLOCK, reason, resp_drift)
                 return ActionVerdict.BLOCK, reason
 
@@ -428,6 +470,7 @@ class IntentGuardCore:
                         f"Критическое отклонение от эталонной цели «{goal_text[:45]}» "
                         f"(goal_drift={goal_drift:.2f}, penalty=-{penalty:.2f}, trust={trust:.2f})"
                     )
+                    self._quarantine_step_vectors(step)
                     await self._write_audit(step.session_id, ActionVerdict.BLOCK, reason, goal_drift)
                     return ActionVerdict.BLOCK, reason
 
@@ -463,6 +506,7 @@ class IntentGuardCore:
 
                     self._stats["blocked"] += 1
                     self._stats["conscience_blocks"] += 1
+                    self._quarantine_step_vectors(step)
                     penalty = self._calc_dynamic_penalty(abs(c_state.conscience_score), 0.0)
                     trust = max(0.0, trust - penalty)
                     self._trust_map[step.session_id] = trust

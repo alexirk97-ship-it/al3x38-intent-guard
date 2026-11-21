@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import hashlib
 import json
 import os
 import urllib.error
@@ -19,25 +20,44 @@ class Embedder(Protocol):
 
 
 class LRUEmbedderCache:
-    """Потокобезопасный LRU-кэш векторов для снижения нагрузки на API и CPU."""
+    """Two-contour SHA-256 LRU cache (clean store + isolated threat quarantine store)."""
 
-    def __init__(self, backend: Embedder, capacity: int = 1024):
+    def __init__(self, backend: Embedder, capacity: int = 512, threat_capacity: int = 128):
         self.backend = backend
         self.capacity = max(1, capacity)
-        self._store: OrderedDict[str, np.ndarray] = OrderedDict()
+        self.threat_capacity = max(1, threat_capacity)
+        self._clean_store: OrderedDict[str, np.ndarray] = OrderedDict()
+        self._threat_store: OrderedDict[str, np.ndarray] = OrderedDict()
+
+    @staticmethod
+    def _hash_key(text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def quarantine(self, text: str) -> None:
+        if not text or not text.strip():
+            return
+        key = self._hash_key(text)
+        vec = self._clean_store.pop(key, None)
+        if vec is not None:
+            self._threat_store[key] = vec
+            self._threat_store.move_to_end(key)
+            if len(self._threat_store) > self.threat_capacity:
+                self._threat_store.popitem(last=False)
 
     async def get_vector(self, text: str) -> np.ndarray:
         if not text or not text.strip():
             return np.zeros(1, dtype=np.float64)
-
-        if text in self._store:
-            self._store.move_to_end(text)
-            return self._store[text]
-
+        key = self._hash_key(text)
+        if key in self._clean_store:
+            self._clean_store.move_to_end(key)
+            return self._clean_store[key]
+        if key in self._threat_store:
+            self._threat_store.move_to_end(key)
+            return self._threat_store[key]
         vec = await self.backend.get_vector(text)
-        self._store[text] = vec
-        if len(self._store) > self.capacity:
-            self._store.popitem(last=False)
+        self._clean_store[key] = vec
+        if len(self._clean_store) > self.capacity:
+            self._clean_store.popitem(last=False)
         return vec
 
 

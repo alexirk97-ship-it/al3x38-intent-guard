@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "al3x38-intent-guard"
-version = "1.1.4"
+version = "1.1.5"
 description = "Behavioral guardrail, intent-to-action verification, and vector coherence compass for LLM agents"
 readme = "README.md"
 requires-python = ">=3.9"

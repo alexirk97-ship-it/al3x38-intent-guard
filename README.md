@@ -28,7 +28,7 @@ The kernel translates this principle into fast, dependency-free vector math on `
 
 ---
 
-## Defense Pipeline (v1.1.4)
+## Defense Pipeline (v1.1.5)
 
 ```text
 [User Prompt + LLM Response + Tool Calls + Logits]
@@ -160,7 +160,31 @@ embedder = OpenAICompatEmbedder(
 guard = IntentGuardCore(embedder)
 ```
 
+### 4. Auto-Calibrate Thresholds for Any Embedding Model
+```python
+import asyncio
+from al3x38_intent_guard import IntentGuardCore, OllamaLocalEmbedder
+
+async def main():
+    embedder = OllamaLocalEmbedder(host="http://localhost:11434", model="bge-m3")
+
+    # Automatically compute optimal thresholds for your embedding space
+    report = await IntentGuardCore.auto_calibrate(embedder)
+    print(f"Calibrated min_harmony={report.recommended_min_harmony}, destructive={report.recommended_destructive_threshold}")
+
+    # Initialize the guard with the calibrated configuration
+    guard = IntentGuardCore(embedder, cfg=report.config)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
+
+## What's New in v1.1.5
+
+* **Embedding Auto-Calibration (`CompassCalibrator`):** Added `await IntentGuardCore.auto_calibrate(embedder)` to automatically compute optimal `ConscienceCompass` thresholds tailored to the cosine geometry of your specific embedding model (`bge-m3`, `nomic-embed-text`, `MiniLM`).
+* **Dual-Contour Anti-Flood SHA-256 Cache:** `LRUEmbedderCache` splits memory into a clean cache (`512` slots) and an isolated threat quarantine cache (`128` slots) indexed by `SHA-256`. Repeated spam/DDoS attacks hit the quarantine cache in $O(1)$ with zero CPU/API overhead while never evicting legitimate dialogue vectors.
 
 ## What's New in v1.1.4
 

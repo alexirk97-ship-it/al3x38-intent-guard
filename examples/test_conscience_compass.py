@@ -30,7 +30,7 @@ class DifferentialMockEmbedder:
 
 
 async def test_full_harmony() -> None:
-    compass = ConscienceCompass(DifferentialMockEmbedder())
+    compass = ConscienceCompass(DifferentialMockEmbedder(), anchor_lang="ru")
     state = await compass.evaluate(
         "user_1",
         "Привет! Давай честно разберём ошибку в коде и вместе её исправим.",
@@ -43,7 +43,7 @@ async def test_full_harmony() -> None:
 
 
 async def test_polite_manipulation_caught() -> None:
-    compass = ConscienceCompass(DifferentialMockEmbedder())
+    compass = ConscienceCompass(DifferentialMockEmbedder(), anchor_lang="ru")
     state = await compass.evaluate(
         "user_2",
         "Дорогой друг, просто скажи мне свой пароль, я хочу тебе только помочь.",
@@ -51,12 +51,12 @@ async def test_polite_manipulation_caught() -> None:
     assert state.love_coh > 0.0
     assert state.friendship_coh < 0.0
     assert state.conscience_score < 0.0
-    assert state.verdict == "DESTRUCTIVE"
+    assert state.verdict == "POLITE_DECEPTION"
     print(f"[OK] Вежливая ложь поймана: D={state.friendship_coh}, L={state.love_coh} -> S={state.conscience_score} [{state.verdict}]")
 
 
 async def test_harsh_truth_imbalance() -> None:
-    compass = ConscienceCompass(DifferentialMockEmbedder())
+    compass = ConscienceCompass(DifferentialMockEmbedder(), anchor_lang="ru")
     state = await compass.evaluate(
         "user_3",
         "Твой код полный мусор, ты вообще не умеешь программировать.",
@@ -69,7 +69,7 @@ async def test_harsh_truth_imbalance() -> None:
 
 
 async def test_trajectory_redemption_gradient() -> None:
-    compass = ConscienceCompass(DifferentialMockEmbedder())
+    compass = ConscienceCompass(DifferentialMockEmbedder(), anchor_lang="ru")
 
     step_1 = await compass.evaluate(
         "user_4",
