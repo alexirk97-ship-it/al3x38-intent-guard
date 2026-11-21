@@ -9,6 +9,7 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-pure%20NumPy-orange.svg)](#installation)
 [![Async](https://img.shields.io/badge/async-asyncio%20ready-blueviolet.svg)](#quick-start)
 [![GitHub stars](https://img.shields.io/github/stars/alexirk97-ship-it/al3x38-intent-guard?style=flat&color=yellow)](https://github.com/alexirk97-ship-it/al3x38-intent-guard/stargazers)
+[![Tests](https://github.com/alexirk97-ship-it/al3x38-intent-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/alexirk97-ship-it/al3x38-intent-guard/actions/workflows/ci.yml)
 
 **`al3x38-intent-guard`** — это асинхронный поведенческий фаервол (Guardrail) и векторный компас когерентности для ИИ-агентов на Python. Библиотека проверяет не просто «запрещённые слова», а **глубинную согласованность** между исходным запросом человека, главной целью диалога, ответом нейросети и реальными системными действиями (`Function Calling`).
 
