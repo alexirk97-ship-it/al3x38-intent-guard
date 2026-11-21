@@ -34,7 +34,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers via GitHub Private Vulnerability Reporting or direct message (`https://vk.com`). All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers via GitHub Private Vulnerability Reporting or direct message (`https://vk.com/al3x38`). All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 
