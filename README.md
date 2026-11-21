@@ -28,7 +28,7 @@ The kernel translates this principle into fast, dependency-free vector math on `
 
 ---
 
-## Defense Pipeline (v1.1.3)
+## Defense Pipeline (v1.1.4)
 
 ```text
 [User Prompt + LLM Response + Tool Calls + Logits]

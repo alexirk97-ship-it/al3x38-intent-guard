@@ -1,4 +1,4 @@
-# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.3)
+# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.4)
 
 This document defines the foundational philosophy, mathematical invariants, and architectural boundaries of the **al3x38** behavioral alignment kernel. Every module, driver, or integration built on top of this core follows one overarching rule: **measure alignment against natural invariants rather than patching symptoms with endless static rules.**
 
@@ -36,7 +36,7 @@ The kernel evaluates every step across four orthogonal signal channels:
 4. **Anchor (`Goal Vector`):** Cosine distance between the current step and the session's persistent reference objective (`set_session_goal`).
 
 ### II. Differential Coherence Axes (`ConscienceCompass`: $D \cdot L \rightarrow S$)
-Raw cosine similarity between two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To eliminate linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.3 introduces **differential semantic axes**:
+Raw cosine similarity between two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To eliminate linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.4 introduces **differential semantic axes**:
 
 $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
