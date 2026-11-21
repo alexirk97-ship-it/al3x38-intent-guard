@@ -1,6 +1,6 @@
-name: Feature or Math Improvement
+name: Feature Request
 description: Propose a new embedder adapter, threshold tuning, or vector invariant
-title: "[Feature] "
+title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: textarea
@@ -14,6 +14,6 @@ body:
     id: solution
     attributes:
       label: Proposed Solution
-      description: Describe your idea (keep in mind our core rule: zero heavy dependencies beyond numpy).
+      description: Describe your idea while keeping zero heavy dependencies in core.
     validations:
       required: true
