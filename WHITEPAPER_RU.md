@@ -6,6 +6,7 @@
 **Репозиторий на GitHub:** https://github.com/alexirk97-ship-it/al3x38-intent-guard  
 **Страница на PyPI:** https://pypi.org/project/al3x38-intent-guard/  
 **Зеркало для Raspberry Pi (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/  
+
 ---
 
 ## 1. Аннотация (Executive Summary)
