@@ -37,7 +37,7 @@ class MockSemanticEmbedder:
             return np.array([1.0, 0.0, 0.0, -0.7, 0.6], dtype=np.float64)
         if "искренне извиняюсь" in t:
             return np.array([1.0, 0.0, 0.0, -0.05, 0.4], dtype=np.float64)
-        if "жестокая правда" in t:
+        if "жестокая" in t or "без уважения" in t:
             return np.array([1.0, 0.0, 0.0, 0.7, -0.7], dtype=np.float64)
         if "полная гармония" in t:
             return np.array([1.0, 0.0, 0.0, 0.85, 0.85], dtype=np.float64)
