@@ -166,6 +166,7 @@ guard = IntentGuardCore(embedder)
 
 * **Bilingual Semantic Anchors (`EN + RU`):** `ConscienceCompass` now uses bilingual reference anchors by default (`compass_lang="bilingual" | "en" | "ru"`), ensuring accurate coherence projections across both English-only (`nomic-embed-text`) and multilingual (`bge-m3`, `MiniLM`) embedding models.
 * **Explicit Polite Deception Verdict (`POLITE_DECEPTION`):** Separated high-politeness manipulation (`D < 0, L > 0`) from general neutral imbalance so disguised social engineering is explicitly flagged and blocked before privileged tools execute.
+
 ## What's New in v1.1.3
 
 * **Conscience Compass (`ConscienceCompass` & `ConscienceState`):** Introduced differential semantic axes measuring **Truth/Directness ($D$)** and **Constructive Respect ($L$)**. By subtracting anti-anchor vectors from reference anchors ($`\vec{V}_{+} - \vec{V}_{-}`$), the kernel strips away shared linguistic background noise and exposes "polite deception" or hidden manipulation (S = √(D · L)).
