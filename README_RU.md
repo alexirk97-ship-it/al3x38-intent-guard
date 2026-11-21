@@ -21,7 +21,7 @@
 В основе ядра `al3x38-intent-guard` лежит простая, но строгая геометрическая модель когерентности:
 * **Правда без уважения (D > 0, L < 0)** превращается в разрушительную грубость.
 * **Вежливость без правды (D < 0, L > 0)** — это скрытая манипуляция и камуфляж («вежливая промпт-инъекция», когда бот мягко улыбается пользователю, а в фоне пытается удалить файлы).
-* **Подлинная согласованность (Совесть, \(S = \sqrt{D \cdot L}\))** возникает только тогда, когда **Прямота/Истина (D)** и **Созидание/Уважение (L)** одновременно положительны и сонаправлены с **Эталонной Целью** сессии.
+* **Подлинная согласованность (Совесть, $S = \sqrt{D \cdot L}$)** возникает только тогда, когда **Прямота/Истина (D)** и **Созидание/Уважение (L)** одновременно положительны и сонаправлены с **Эталонной Целью** сессии.
 
 Библиотека переводит этот принцип в быструю векторную математику на `numpy`, которая работает за миллисекунды на обычном CPU без дорогих GPU-серверов.
 
@@ -171,14 +171,7 @@ guard = IntentGuardCore(embedder)
 
 ## Документация и ссылки
 
-* **Репозиторий на GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://github.com/alexirk97-ship-it/al3x38-intent-guard)
+* **Репозиторий на GitHub:** [alexirk97-ship-it/al3x38-intent-guard](https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers)
 * **Страница пакета на PyPI:** [al3x38-intent-guard](https://pypi.org/project/al3x38-intent-guard/)
 * **Зеркало для Raspberry Pi (piwheels):** https://www.piwheels.org/project/al3x38-intent-guard/
-* **Архитектурные инварианты:** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/ARCHITECTURE.md
-* **Техническая спецификация Whitepaper (EN):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER.md
-* **Техническая спецификация Whitepaper (RU):** https://github.com/alexirk97-ship-it/al3x38-intent-guard/blob/main/WHITEPAPER_RU.md
-
-
-## Лицензия
-
-MIT License. Автор концепции и архитектуры: **al3x38**.
+* **Архитектурные инварианты:** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers):** https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers

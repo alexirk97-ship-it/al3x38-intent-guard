@@ -1,4 +1,4 @@
-# Security Policy
+﻿# Security Policy
 
 ## Supported Versions
 
@@ -19,7 +19,7 @@ Because `al3x38-intent-guard` is designed as a behavioral guardrail and security
 **Please do not report security vulnerabilities through public GitHub issues.**
 
 Instead, please report them privately using one of the following methods:
-1. **GitHub Private Vulnerability Reporting:** Use the **"Report a vulnerability"** button under the **Security** tab of this repository (`[https://github.com](https://github.com/alexirk97-ship-it/al3x38-intent-guard)`).
+1. **GitHub Private Vulnerability Reporting:** Use the **"Report a vulnerability"** button under the **Security** tab of this repository (`[https://://github.comalexirk97-ship-it/al3x38-intent-guard/stargazers)`).
 2. **Direct Message (VK):** Reach out directly to the maintainer (`Alex`) via private messages on VK: `https://vk.com/al3x38`
 
 
