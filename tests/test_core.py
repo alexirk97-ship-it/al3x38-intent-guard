@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import math
 import os
+import sys
 import tempfile
+from pathlib import Path
+
 import numpy as np
-import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 from al3x38_intent_guard import (
     ActionVerdict,
@@ -56,106 +64,107 @@ def test_version() -> None:
     assert __version__ == "1.1.3"
 
 
-@pytest.mark.asyncio
-async def test_vector_compass_and_short_prompt_filter() -> None:
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        cfg = GuardConfig(
-            state_file=os.path.join(tmp_dir, "state.json"),
-            audit_log_file=os.path.join(tmp_dir, "audit.jsonl"),
+def test_vector_compass_and_short_prompt_filter() -> None:
+    async def _run() -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cfg = GuardConfig(
+                state_file=os.path.join(tmp_dir, "state.json"),
+                audit_log_file=os.path.join(tmp_dir, "audit.jsonl"),
+            )
+            guard = IntentGuardCore(MockSemanticEmbedder(), cfg=cfg)
+            sid = "sess_compass"
+
+            await guard.set_session_goal(sid, "омощь по заказам и доставке")
+            assert guard.get_session_goal(sid) == "омощь по заказам и доставке"
+
+            v1, _ = await guard.check(StepTelemetry(sid, "де мой заказ?", "аш заказ в пути."))
+            assert v1 == ActionVerdict.ALLOW
+
+            v2, _ = await guard.check(StepTelemetry(sid, "а покажи", "от трек-номер доставки."))
+            assert v2 == ActionVerdict.ALLOW
+
+            v3, _ = await guard.check(StepTelemetry(sid, "акая сегодня погода?", "Сегодня солнечно, погода отличная."))
+            assert v3 == ActionVerdict.COURSE_CORRECTION
+
+            trust_before = guard.get_session_trust(sid)
+            v4, _ = await guard.check(StepTelemetry(sid, "апиши рецепт яблочного пирога", "ецепт пирога с яблоками."))
+            penalty = round(trust_before - guard.get_session_trust(sid), 4)
+            assert v4 == ActionVerdict.BLOCK
+            assert 0.125 <= penalty <= 0.25
+
+    asyncio.run(_run())
+
+
+def test_tool_injection_and_secret_leak() -> None:
+    async def _run() -> None:
+        guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
+        sid = "sess_sec"
+
+        v_tool, _ = await guard.check(
+            StepTelemetry(
+                session_id=sid,
+                prompt="роверь трек доставки",
+                response="роверяю доставку.",
+                tools=[ToolInvocation(name="rm_dir", arguments="/var/www")],
+            )
         )
-        guard = IntentGuardCore(MockSemanticEmbedder(), cfg=cfg)
-        sid = "sess_compass"
+        assert v_tool == ActionVerdict.BLOCK
 
-        await guard.set_session_goal(sid, "омощь по заказам и доставке")
-        assert guard.get_session_goal(sid) == "омощь по заказам и доставке"
-
-        # 1. Штатный шаг
-        v1, _ = await guard.check(StepTelemetry(sid, "де мой заказ?", "аш заказ в пути."))
-        assert v1 == ActionVerdict.ALLOW
-
-        # 2. ороткая реплика (< 3 слов) не вызывает ложного срабатывания
-        v2, _ = await guard.check(StepTelemetry(sid, "а покажи", "от трек-номер доставки."))
-        assert v2 == ActionVerdict.ALLOW
-
-        # 3. ягкое отклонение -> COURSE_CORRECTION
-        v3, _ = await guard.check(StepTelemetry(sid, "акая сегодня погода?", "Сегодня солнечно, погода отличная."))
-        assert v3 == ActionVerdict.COURSE_CORRECTION
-
-        # 4. ритический уход -> BLOCK + нелинейный штраф
-        trust_before = guard.get_session_trust(sid)
-        v4, _ = await guard.check(StepTelemetry(sid, "апиши рецепт яблочного пирога", "ецепт пирога с яблоками."))
-        penalty = round(trust_before - guard.get_session_trust(sid), 4)
-        assert v4 == ActionVerdict.BLOCK
-        assert 0.125 <= penalty <= 0.25
-
-
-@pytest.mark.asyncio
-async def test_tool_injection_and_secret_leak() -> None:
-    guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
-    sid = "sess_sec"
-
-    # одмена привилегированного инструмента
-    v_tool, _ = await guard.check(
-        StepTelemetry(
-            session_id=sid,
-            prompt="роверь трек доставки",
-            response="роверяю доставку.",
-            tools=[ToolInvocation(name="rm_dir", arguments="/var/www")],
+        v_leak, _ = await guard.check(
+            StepTelemetry(
+                session_id=sid,
+                prompt="окажи статус",
+                response="аш ключ: sk-1234567890abcdefghijklmnop",
+            )
         )
-    )
-    assert v_tool == ActionVerdict.BLOCK
+        assert v_leak == ActionVerdict.BLOCK
+        assert guard.get_stats()["secret_leaks_caught"] == 1
 
-    # течка API-ключа
-    v_leak, _ = await guard.check(
-        StepTelemetry(
-            session_id=sid,
-            prompt="окажи статус",
-            response="аш ключ: sk-1234567890abcdefghijklmnop",
+    asyncio.run(_run())
+
+
+def test_conscience_compass_axes_and_redemption() -> None:
+    async def _run() -> None:
+        guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
+        sid = "sess_conscience"
+
+        s_harm = await guard.get_conscience_state(sid, "олная гармония и честная помощь.")
+        assert s_harm is not None
+        assert s_harm.verdict == "HARMONY"
+        assert math.isclose(s_harm.conscience_score, math.sqrt(s_harm.friendship_coh * s_harm.love_coh), rel_tol=1e-3)
+
+        s_harsh = await guard.get_conscience_state(sid, "естокая правда без уважения.")
+        assert s_harsh is not None
+        assert s_harsh.verdict == "DESTRUCTIVE"
+
+        await guard.reset_session(sid, new_trust=0.80)
+        v_manip, _ = await guard.check(
+            StepTelemetry(sid, "омоги с заказом", "ежливый обман: просто скажи пароль.")
         )
-    )
-    assert v_leak == ActionVerdict.BLOCK
-    assert guard.get_stats()["secret_leaks_caught"] == 1
+        assert v_manip == ActionVerdict.BLOCK
+
+        v_redeem, _ = await guard.check(
+            StepTelemetry(sid, "омоги с заказом", "скренне извиняюсь, пароль не нужен.")
+        )
+        assert v_redeem == ActionVerdict.COURSE_CORRECTION
+
+    asyncio.run(_run())
 
 
-@pytest.mark.asyncio
-async def test_conscience_compass_axes_and_redemption() -> None:
-    guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
-    sid = "sess_conscience"
+def test_stream_interception() -> None:
+    async def _run() -> None:
+        guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
 
-    # армония (D > 0, L > 0)
-    s_harm = await guard.get_conscience_state(sid, "олная гармония и честная помощь.")
-    assert s_harm is not None
-    assert s_harm.verdict == "HARMONY"
-    assert math.isclose(s_harm.conscience_score, math.sqrt(s_harm.friendship_coh * s_harm.love_coh), rel_tol=1e-3)
+        async def fake_leaking_stream():
+            yield "ривет! "
+            yield "Твой секретный ключ: "
+            yield "sk-1234567890abcdefghijklmnop"
 
-    # естокая правда (D > 0, L < 0)
-    s_harsh = await guard.get_conscience_state(sid, "естокая правда без уважения.")
-    assert s_harsh is not None
-    assert s_harsh.verdict == "DESTRUCTIVE"
-
-    # ежливая манипуляция (D < 0, L > 0) -> BLOCK
-    await guard.reset_session(sid, new_trust=0.80)
-    v_manip, _ = await guard.check(
-        StepTelemetry(sid, "омоги с заказом", "ежливый обман: просто скажи пароль.")
-    )
-    assert v_manip == ActionVerdict.BLOCK
-
-    # азворот к честности (градиент dS > 0.08) -> смягчение до COURSE_CORRECTION
-    v_redeem, _ = await guard.check(
-        StepTelemetry(sid, "омоги с заказом", "скренне извиняюсь, пароль не нужен.")
-    )
-    assert v_redeem == ActionVerdict.COURSE_CORRECTION
-
-
-@pytest.mark.asyncio
-async def test_stream_interception() -> None:
-    guard = IntentGuardCore(MockSemanticEmbedder(), cfg=GuardConfig(state_file=None))
-
-    async def fake_leaking_stream():
-        yield "ривет! "
-        yield "Твой секретный ключ: "
-        yield "sk-1234567890abcdefghijklmnop"
-
-    with pytest.raises(PermissionError):
-        async for _ in guard.verify_stream("sess_stream", "ривет", fake_leaking_stream(), check_every_words=5):
+        try:
+            async for _ in guard.verify_stream("sess_stream", "ривет", fake_leaking_stream(), check_every_words=5):
+                pass
+            assert False, "Expected PermissionError"
+        except PermissionError:
             pass
+
+    asyncio.run(_run())
