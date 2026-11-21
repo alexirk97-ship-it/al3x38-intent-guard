@@ -1,0 +1,19 @@
+name: Feature / Math Improvement Request
+description: Propose a new embedder adapter, threshold tuning, or vector invariant
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What bottleneck or agent safety scenario are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your idea (keep in mind our core rule: zero heavy dependencies beyond numpy).
+    validations:
+      required: true
