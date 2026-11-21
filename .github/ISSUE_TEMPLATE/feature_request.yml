@@ -1,6 +1,6 @@
-name: Feature / Math Improvement Request
+name: Feature or Math Improvement
 description: Propose a new embedder adapter, threshold tuning, or vector invariant
-title: "[Feature]: "
+title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: textarea
