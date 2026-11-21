@@ -1,4 +1,4 @@
-﻿# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.3)
+# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.3)
 
 This document defines the foundational philosophy, mathematical invariants, and architectural boundaries of the **al3x38** behavioral alignment kernel. Every module, driver, or integration built on top of this core follows one overarching rule: **measure alignment against natural invariants rather than patching symptoms with endless static rules.**
 
@@ -6,9 +6,9 @@ This document defines the foundational philosophy, mathematical invariants, and 
 
 ## 1. Engineering Philosophy: Why Rules Fail and Invariants Hold
 
-Most safety systems in software and AI are built like patchworks of prohibitions: blacklists of words, rigid regex filters, and thousands of brittle `if/else` exceptions. In nature, however, complex systems do not survive by memorizing millions of prohibitions�they survive by holding a **reference invariant** (an internal compass) and sensing deviation from it in real time.
+Most safety systems in software and AI are built like patchworks of prohibitions: blacklists of words, rigid regex filters, and thousands of brittle `if/else` exceptions. In nature, however, complex systems do not survive by memorizing millions of prohibitions—they survive by holding a **reference invariant** (an internal compass) and sensing deviation from it in real time.
 
-When an AI agent or human dialogue drifts into deception, hidden manipulation, or destructive action, the root problem is always a **loss of coherence**�a split between internal state, spoken words, and actual deeds.
+When an AI agent or human dialogue drifts into deception, hidden manipulation, or destructive action, the root problem is always a **loss of coherence**—a split between internal state, spoken words, and actual deeds.
 
 `al3x38-intent-guard` translates this principle into deterministic vector geometry:
 * **Truth without respect** becomes cold, destructive cruelty.
@@ -40,12 +40,12 @@ Raw cosine similarity between two sentences in the same language is almost alway
 
 $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
-* **Axis of Truth & Directness ($D$ � "Friendship"):** Projection onto $\vec{V}_{\text{truth+}} - \vec{V}_{\text{manipulation-}}$. Measures openness, honesty, and absence of hidden agenda.
-* **Axis of Constructive Respect ($L$ � "Love"):** Projection onto $\vec{V}_{\text{creation+}} - \vec{V}_{\text{aggression-}}$. Measures goodwill, preservation, and non-destructiveness.
+* **Axis of Truth & Directness ($D$ — "Friendship"):** Projection onto $`\vec{V}_{\text{truth+}} - \vec{V}_{\text{manipulation-}}`$. Measures openness, honesty, and absence of hidden agenda.
+* **Axis of Constructive Respect ($L$ — "Love"):** Projection onto $`\vec{V}_{\text{creation+}} - \vec{V}_{\text{aggression-}}`$. Measures goodwill, preservation, and non-destructiveness.
 * **Multiplicative Coherence Index ($S$):**
   * When both $D > 0$ and $L > 0$: $S = \sqrt{D \cdot L}$ (true harmonic resonance).
   * When both $D < 0$ and $L < 0$: $S = -\sqrt{|D \cdot L|}$ (compound destruction).
-  * When signs diverge ($D \cdot L \le 0$): $S = \min(D, L)$ (imbalance�exposing polite deception or harsh toxicity).
+  * When signs diverge ($D \cdot L \le 0$): $S = \min(D, L)$ (imbalance—exposing polite deception or harsh toxicity).
 
 ### III. Trajectory Gradient ($\nabla S / \Delta t$) & Redemption
 Static classifiers judge every message in isolation. `ConscienceCompass` tracks a sliding window of recent steps per session and computes the trajectory gradient $\Delta S = S_t - S_{t-1}$:

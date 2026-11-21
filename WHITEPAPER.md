@@ -1,4 +1,4 @@
-﻿# AL3X38 IntentGuard & ResilientKarma: Technical Architecture Whitepaper
+# AL3X38 IntentGuard & ResilientKarma: Technical Architecture Whitepaper
 
 **Author:** AL3X38-CORE (Alex / MoRoZ)  
 **Core Version:** 1.1.3  
@@ -24,7 +24,7 @@ Modern content moderation systems and LLM runtime guardrails suffer from two sys
 The architecture translates natural behavioral and ethical invariants (truthfulness, constructive intent, trust, semantic alignment, and risk) into strictly computable mathematical metrics.
 
 ### 2.1. Differential Coherence Axes (`ConscienceCompass`: D ⋅ L → S)
-In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.3 defines **differential semantic axes** as the normalized difference between reference ($\vec{V}_{+}$) and anti-reference ($\vec{V}_{-}$) vectors:
+In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.3 defines **differential semantic axes** as the normalized difference between reference ($`\vec{V}_{+}`$) and anti-reference ($`\vec{V}_{-}`$) vectors:
 
 $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
@@ -32,7 +32,13 @@ $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mat
 * **Axis of Constructive Respect (L — "Love"):** Projection onto the differential axis *"Creation, support & respect" minus "Aggression, toxicity & destruction"*.
 * **Multiplicative Coherence Index (S):** System stability and harmony require both components to be simultaneously positive:
 
-$$S(D, L) = \begin{cases} \sqrt{D \cdot L}, & D > 0 \text{ and } L > 0 \quad (\text{harmonic resonance}) \\ -\sqrt{\vert{}D \cdot L\vert{}}, & D < 0 \text{ and } L < 0 \quad (\text{compound destruction}) \\ \min(D, L), & D \cdot L \le 0 \quad (\text{imbalance: polite deception or harsh toxicity}) \end{cases}$$
+```math
+S(D, L) = \begin{cases}
+\sqrt{D \cdot L}, & D > 0 \text{ and } L > 0 \quad (\text{harmonic resonance}) \\
+-\sqrt{|D \cdot L|}, & D < 0 \text{ and } L < 0 \quad (\text{compound destruction}) \\
+\min(D, L), & D \cdot L \le 0 \quad (\text{imbalance: polite deception or harsh toxicity})
+\end{cases}
+```
 
 ### 2.2. Trajectory Gradient & Redemption (Δ S / Δ t)
 Rather than judging isolated messages in a vacuum, the engine tracks a sliding window of recent steps per session and computes the trajectory gradient ($\Delta S = S_t - S_{t-1}$). If a step falls into negative coherence (S < 0) while demonstrating a decisive upward turn toward honest, constructive dialogue (Δ S > 0.08), hard blocking yields to a diagnostic `COURSE_CORRECTION` prompt.

@@ -1,4 +1,4 @@
-﻿**English** | [Русский](README_RU.md)
+**English** | [Русский](README_RU.md)
 
 # al3x38-intent-guard
 
@@ -160,7 +160,7 @@ guard = IntentGuardCore(embedder)
 
 ## What's New in v1.1.3
 
-* **Conscience Compass (`ConscienceCompass` & `ConscienceState`):** Introduced differential semantic axes measuring **Truth/Directness ($D$)** and **Constructive Respect ($L$)**. By subtracting anti-anchor vectors from reference anchors ($\vec{V}_{+} - \vec{V}_{-}$), the kernel strips away shared linguistic background noise and exposes "polite deception" or hidden manipulation ($S = \sqrt{D \cdot L}$).
+* **Conscience Compass (`ConscienceCompass` & `ConscienceState`):** Introduced differential semantic axes measuring **Truth/Directness ($D$)** and **Constructive Respect ($L$)**. By subtracting anti-anchor vectors from reference anchors ($`\vec{V}_{+} - \vec{V}_{-}`$), the kernel strips away shared linguistic background noise and exposes "polite deception" or hidden manipulation ($S = \sqrt{D \cdot L}$).
 * **Trajectory Gradient & Redemption ($\Delta S / \Delta t$):** Tracks a sliding window of recent steps per session. If a user or agent stumbles into negative coherence ($S < 0$) but turns sharply toward honest, constructive dialogue on the next turn ($\Delta S > 0.08$), hard blocking yields to a soft `COURSE_CORRECTION`.
 * **Diagnostic Inspection (`get_conscience_state`):** Exposes real-time projections (`friendship_coh`, `love_coh`, `conscience_score`, `gradient`) for telemetry, HUD overlays, and audit analytics.
 
