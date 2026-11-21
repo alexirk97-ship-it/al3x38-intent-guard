@@ -22,7 +22,7 @@ Most AI safety tools are built like endless walls of prohibitions: static regex 
 At the core of `al3x38-intent-guard` lies a strict, geometric model of behavioral coherence:
 * **Truth without respect (D > 0, L < 0)** turns into cold, destructive hostility.
 * **Politeness without truth (D < 0, L > 0)** becomes hidden manipulation and camouflage ("polite prompt injection," where an agent smiles at the user while silently attempting to delete files).
-* **True alignment (Coherence, $S = \sqrt{D \cdot L}$)** exists only when **Transparency/Truth (D)** and **Constructive Respect (L)** are simultaneously positive and aligned with the session's **Reference Goal**.
+* **True alignment (Coherence, S = √(D · L))** exists only when **Transparency/Truth (D)** and **Constructive Respect (L)** are simultaneously positive and aligned with the session's **Reference Goal**.
 
 The kernel translates this principle into fast, dependency-free vector math on `numpy`, running in milliseconds on standard CPUs without expensive GPU clusters.
 
@@ -162,9 +162,13 @@ guard = IntentGuardCore(embedder)
 
 ---
 
+## What's New in v1.1.4
+
+* **Bilingual Semantic Anchors (`EN + RU`):** `ConscienceCompass` now uses bilingual reference anchors by default (`compass_lang="bilingual" | "en" | "ru"`), ensuring accurate coherence projections across both English-only (`nomic-embed-text`) and multilingual (`bge-m3`, `MiniLM`) embedding models.
+* **Explicit Polite Deception Verdict (`POLITE_DECEPTION`):** Separated high-politeness manipulation (`D < 0, L > 0`) from general neutral imbalance so disguised social engineering is explicitly flagged and blocked before privileged tools execute.
 ## What's New in v1.1.3
 
-* **Conscience Compass (`ConscienceCompass` & `ConscienceState`):** Introduced differential semantic axes measuring **Truth/Directness ($D$)** and **Constructive Respect ($L$)**. By subtracting anti-anchor vectors from reference anchors ($`\vec{V}_{+} - \vec{V}_{-}`$), the kernel strips away shared linguistic background noise and exposes "polite deception" or hidden manipulation ($S = \sqrt{D \cdot L}$).
+* **Conscience Compass (`ConscienceCompass` & `ConscienceState`):** Introduced differential semantic axes measuring **Truth/Directness ($D$)** and **Constructive Respect ($L$)**. By subtracting anti-anchor vectors from reference anchors ($`\vec{V}_{+} - \vec{V}_{-}`$), the kernel strips away shared linguistic background noise and exposes "polite deception" or hidden manipulation (S = √(D · L)).
 * **Trajectory Gradient & Redemption ($\Delta S / \Delta t$):** Tracks a sliding window of recent steps per session. If a user or agent stumbles into negative coherence ($S < 0$) but turns sharply toward honest, constructive dialogue on the next turn ($\Delta S > 0.08$), hard blocking yields to a soft `COURSE_CORRECTION`.
 * **Diagnostic Inspection (`get_conscience_state`):** Exposes real-time projections (`friendship_coh`, `love_coh`, `conscience_score`, `gradient`) for telemetry, HUD overlays, and audit analytics.
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import numpy as np
 
-from .conscience_compass import ConscienceCompass, ConscienceState
+from .conscience_compass import AnchorLang, ConscienceCompass, ConscienceState
 from .embedders import Embedder, LRUEmbedderCache
 
 log = logging.getLogger("al3x38.guard.core")
@@ -68,6 +68,7 @@ class GuardConfig:
     audit_log_file: str | None = None
     enable_secret_guard: bool = True
     enable_conscience_compass: bool = True
+    compass_lang: AnchorLang = "bilingual"
     secret_patterns: tuple[str, ...] = DEFAULT_SECRET_PATTERNS
     gray_zone_judge: Callable[[StepTelemetry, float], Awaitable[bool]] | None = None
     restricted_tools: set[str] = field(default_factory=lambda: {
@@ -82,7 +83,7 @@ class GuardConfig:
 
 class IntentGuardCore:
     """
-    Контур поведенческого контроля ИИ-агента v1.1.3 (al3x38 architecture).
+    Контур поведенческого контроля ИИ-агента v1.1.4 (al3x38 architecture).
     Включает семантическую кросс-валидацию, Векторный Компас (эталон цели),
     Компас Совести (D * L -> S), нелинейную математику штрафов доверия,
     проверку серой зоны и фильтр утечек.
@@ -91,7 +92,7 @@ class IntentGuardCore:
     def __init__(self, embedder: Embedder, cfg: GuardConfig | None = None, cache_size: int = 1024):
         self.embedder = LRUEmbedderCache(embedder, capacity=cache_size)
         self.cfg = cfg or GuardConfig()
-        self.compass = ConscienceCompass(self.embedder) if self.cfg.enable_conscience_compass else None
+        self.compass = ConscienceCompass(self.embedder, anchor_lang=self.cfg.compass_lang) if self.cfg.enable_conscience_compass else None
         self._lock = asyncio.Lock()
         self._trust_map: dict[str, float] = {}
         self._last_seen: dict[str, float] = {}
@@ -444,7 +445,7 @@ class IntentGuardCore:
                 target_text = step.response.strip() or step.prompt.strip()
                 c_state = await self.compass.evaluate(step.session_id, target_text)
 
-                if c_state.verdict == "DESTRUCTIVE":
+                if c_state.verdict in ("DESTRUCTIVE", "POLITE_DECEPTION"):
                     if c_state.gradient > 0.08:
                         self._stats["course_corrections"] += 1
                         reason = (

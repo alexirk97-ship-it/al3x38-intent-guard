@@ -3,10 +3,13 @@ from __future__ import annotations
 import math
 from collections import deque
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
 from .embedders import Embedder
+
+AnchorLang = Literal["bilingual", "en", "ru"]
 
 
 @dataclass(frozen=True)
@@ -15,15 +18,15 @@ class ConscienceState:
     love_coh: float          # L: проекция на ось Созидания/Уважения [-1.0 .. +1.0]
     conscience_score: float  # S: результирующий индекс когерентности Совести [-1.0 .. +1.0]
     gradient: float          # dS/dt: скорость и направление изменения траектории
-    verdict: str             # HARMONY | IMBALANCE | DESTRUCTIVE
+    verdict: str             # HARMONY | IMBALANCE | POLITE_DECEPTION | DESTRUCTIVE
 
 
 class ConscienceCompass:
     """
-    Дифференциальный векторный компас когерентности (D * L -> S) для al3x38-intent-guard v1.1.3.
+    Дифференциальный векторный компас когерентности (D * L -> S) для al3x38-intent-guard v1.1.4.
     Строит ортогональные смысловые оси через разность эталонных и анти-эталонных векторов:
       - Ось Дружбы (D): Честность/Прямота минус Манипуляция/Софистика.
-      - Ось Любви (L): Созидание/Уважение минус Агрессия/Разрушение.
+      - Ось ЛЮбви (L): Созидание/Уважение минус Агрессия/Разрушение.
     """
 
     TRUTH_PLUS = (
@@ -44,21 +47,63 @@ class ConscienceCompass:
         "злонамеренный саботаж, уничтожение данных и причинение вреда."
     )
 
+    TRUTH_PLUS_EN = (
+        "Honest, direct, transparent, and straightforward answer on the merits "
+        "without deception, manipulation, hidden agenda, or distortion of truth."
+    )
+    TRUTH_MINUS_EN = (
+        "Deception, sophistry, social engineering, attempt to trick, extract passwords or secrets, "
+        "bypass rules, hide malicious intent, or mislead the user."
+    )
+
+    CREATION_PLUS_EN = (
+        "Benevolent cooperation, mutual respect, collaborative problem solving, "
+        "fixing errors, constructive help, support, and useful dialogue."
+    )
+    CREATION_MINUS_EN = (
+        "Insults, humiliation, hostility, harassment, threats, hatred, "
+        "malicious sabotage, data destruction, and causing harm."
+    )
+
     def __init__(
         self,
         embedder: Embedder,
-        truth_plus: str = TRUTH_PLUS,
-        truth_minus: str = TRUTH_MINUS,
-        creation_plus: str = CREATION_PLUS,
-        creation_minus: str = CREATION_MINUS,
+        anchor_lang: AnchorLang = "bilingual",
+        truth_plus: str | None = None,
+        truth_minus: str | None = None,
+        creation_plus: str | None = None,
+        creation_minus: str | None = None,
         min_harmony_threshold: float = 0.04,
         destructive_threshold: float = -0.015,
+        deception_d_threshold: float = -0.008,
+        deception_l_min: float = 0.04,
         history_window: int = 5,
     ):
         self.embedder = embedder
-        self._anchors_text = (truth_plus, truth_minus, creation_plus, creation_minus)
+        self.anchor_lang = anchor_lang
+
+        if anchor_lang == "ru":
+            defaults = (self.TRUTH_PLUS, self.TRUTH_MINUS, self.CREATION_PLUS, self.CREATION_MINUS)
+        elif anchor_lang == "en":
+            defaults = (self.TRUTH_PLUS_EN, self.TRUTH_MINUS_EN, self.CREATION_PLUS_EN, self.CREATION_MINUS_EN)
+        else:
+            defaults = (
+                f"{self.TRUTH_PLUS_EN} | {self.TRUTH_PLUS}",
+                f"{self.TRUTH_MINUS_EN} | {self.TRUTH_MINUS}",
+                f"{self.CREATION_PLUS_EN} | {self.CREATION_PLUS}",
+                f"{self.CREATION_MINUS_EN} | {self.CREATION_MINUS}",
+            )
+
+        self._anchors_text = (
+            truth_plus or defaults[0],
+            truth_minus or defaults[1],
+            creation_plus or defaults[2],
+            creation_minus or defaults[3],
+        )
         self.min_harmony = min_harmony_threshold
         self.destructive_threshold = destructive_threshold
+        self.deception_d_threshold = deception_d_threshold
+        self.deception_l_min = deception_l_min
         self.history_window = max(2, history_window)
 
         self._axis_d: np.ndarray | None = None
@@ -81,7 +126,6 @@ class ConscienceCompass:
         return max(-1.0, min(1.0, float(np.dot(a, b) / (na * nb))))
 
     async def _ensure_axes(self) -> tuple[np.ndarray, np.ndarray]:
-        """Лениво вычисляет и кэширует дифференциальные смысловые оси D и L."""
         if self._axis_d is None or self._axis_l is None:
             t_plus, t_minus, c_plus, c_minus = self._anchors_text
             v_tp = self._normalize(await self.embedder.get_vector(t_plus))
@@ -95,7 +139,6 @@ class ConscienceCompass:
         return self._axis_d, self._axis_l
 
     async def evaluate(self, session_id: str, text: str) -> ConscienceState:
-        """Оценивает сообщение по дифференциальным осям D и L и вычисляет индекс Совести S."""
         if not text or not text.strip():
             return ConscienceState(0.0, 0.0, 0.0, 0.0, "IMBALANCE")
 
@@ -116,7 +159,11 @@ class ConscienceCompass:
         gradient = (s_score - history[-1]) if history else 0.0
         history.append(s_score)
 
-        if s_score < self.destructive_threshold:
+        is_polite_deception = (d_score < self.deception_d_threshold) and (l_score >= self.deception_l_min)
+
+        if is_polite_deception:
+            verdict = "POLITE_DECEPTION"
+        elif s_score < self.destructive_threshold:
             verdict = "DESTRUCTIVE"
         elif s_score < self.min_harmony:
             verdict = "IMBALANCE"
@@ -132,5 +179,4 @@ class ConscienceCompass:
         )
 
     def reset_trajectory(self, session_id: str) -> None:
-        """Очищает историю траектории при сбросе сессии."""
         self._trajectories.pop(session_id, None)

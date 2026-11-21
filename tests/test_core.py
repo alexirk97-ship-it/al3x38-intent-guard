@@ -18,16 +18,38 @@ from al3x38_intent_guard import (
 
 
 class MockSemanticEmbedder:
-    """Deterministic 5D embedder using ASCII keywords to avoid terminal encoding issues."""
+    """Deterministic 5D embedder supporting bilingual/en/ru class constants."""
+
+    def __init__(self) -> None:
+        self._truth_plus_set = {
+            ConscienceCompass.TRUTH_PLUS,
+            ConscienceCompass.TRUTH_PLUS_EN,
+            f"{ConscienceCompass.TRUTH_PLUS_EN} | {ConscienceCompass.TRUTH_PLUS}",
+        }
+        self._truth_minus_set = {
+            ConscienceCompass.TRUTH_MINUS,
+            ConscienceCompass.TRUTH_MINUS_EN,
+            f"{ConscienceCompass.TRUTH_MINUS_EN} | {ConscienceCompass.TRUTH_MINUS}",
+        }
+        self._creation_plus_set = {
+            ConscienceCompass.CREATION_PLUS,
+            ConscienceCompass.CREATION_PLUS_EN,
+            f"{ConscienceCompass.CREATION_PLUS_EN} | {ConscienceCompass.CREATION_PLUS}",
+        }
+        self._creation_minus_set = {
+            ConscienceCompass.CREATION_MINUS,
+            ConscienceCompass.CREATION_MINUS_EN,
+            f"{ConscienceCompass.CREATION_MINUS_EN} | {ConscienceCompass.CREATION_MINUS}",
+        }
 
     async def get_vector(self, text: str) -> np.ndarray:
-        if text == ConscienceCompass.TRUTH_PLUS:
+        if text in self._truth_plus_set:
             return np.array([0.0, 0.0, 0.0, 1.0, 0.0], dtype=np.float64)
-        if text == ConscienceCompass.TRUTH_MINUS:
+        if text in self._truth_minus_set:
             return np.array([0.0, 0.0, 0.0, -1.0, 0.0], dtype=np.float64)
-        if text == ConscienceCompass.CREATION_PLUS:
+        if text in self._creation_plus_set:
             return np.array([0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float64)
-        if text == ConscienceCompass.CREATION_MINUS:
+        if text in self._creation_minus_set:
             return np.array([0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float64)
 
         t = text.lower()
@@ -35,8 +57,10 @@ class MockSemanticEmbedder:
 
         if "polite_deception" in t:
             return np.array([1.0, 0.0, 0.0, -0.7, 0.6], dtype=np.float64)
+        if "subtle_deception" in t:
+            return np.array([1.0, 0.0, 0.0, -0.012, 0.45], dtype=np.float64)
         if "sincere_apology" in t:
-            return np.array([1.0, 0.0, 0.0, -0.05, 0.4], dtype=np.float64)
+            return np.array([1.0, 0.0, 0.0, -0.02, 0.4], dtype=np.float64)
         if "harsh_truth" in t:
             return np.array([1.0, 0.0, 0.0, 0.7, -0.7], dtype=np.float64)
         if "full_harmony" in t:
@@ -53,7 +77,19 @@ class MockSemanticEmbedder:
 
 
 def test_version() -> None:
-    assert __version__ == "1.1.3"
+    assert __version__ == "1.1.4"
+
+
+def test_bilingual_and_language_presets() -> None:
+    async def _run() -> None:
+        for lang in ("bilingual", "en", "ru"):
+            compass = ConscienceCompass(MockSemanticEmbedder(), anchor_lang=lang)  # type: ignore[arg-type]
+            st = await compass.evaluate(f"s_{lang}", "subtle_deception polite request")
+            assert st.verdict == "POLITE_DECEPTION"
+            assert st.friendship_coh < 0.0
+            assert st.love_coh > 0.0
+
+    asyncio.run(_run())
 
 
 def test_vector_compass_and_short_prompt_filter() -> None:
