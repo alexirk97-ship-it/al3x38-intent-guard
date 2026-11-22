@@ -68,7 +68,13 @@ To neutralize automated spam-bot floods without cache pollution, `LRUEmbedderCac
 
 ## 2.6. 4D Cognitive Decision Matrix & Mutual Agent Calibration (`v1.2.0`)
 
-Extending the 2D Conscience Compass ($D \cdot L \to S$), `CognitiveMatrixEngine` projects utterances onto four orthogonal poles: Directness ($D$), Creation ($L$), Analytical Logic ($R$), and Openness to Revision ($O$). Each entity maintains an EMA profile $\mathbf{M}_t = (1 - \alpha)\mathbf{M}_{t-1} + \alpha \mathbf{x}_t$ (~250 bytes, serializable to JSON, SQL, or encrypted `.core` files).
+Extending the 2D Conscience Compass ($D \cdot L \to S$), `CognitiveMatrixEngine` projects utterances onto four orthogonal poles: Directness ($D$), Creation ($L$), Analytical Logic ($R$), and Openness to Revision ($O$). Each entity maintains an EMA profile 
+
+$$
+\mathbf{M}_t = (1 - \alpha)\mathbf{M}_{t-1} + \alpha \mathbf{x}_t
+$$
+
+ (~250 bytes, serializable to JSON, SQL, or encrypted `.core` files).
 
 Before emitting a response, an agent runs `self_reflect_draft()` to verify its own coherence gradient ($\nabla S \ge 0$). During interaction, `analyze_perspective()` detects the interlocutor's blind spot and outputs a structural steering hint for mutual calibration.
 
