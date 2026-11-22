@@ -28,7 +28,7 @@
 
 ---
 
-## Как устроен конвейер защиты (v1.1.5)
+## Как устроен конвейер защиты (v1.2.0)
 
 ```text
 [Запрос пользователя + Ответ LLM + Вызовы инструментов + Логиты]
@@ -179,7 +179,34 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### 5. High-Load SQL-хранилище и самокоррекция агентов (`v1.2.0`)
+```python
+import asyncio
+from al3x38_intent_guard import IntentGuardCore, OllamaLocalEmbedder, SQLStateStore
+
+async def main():
+    store = SQLStateStore.from_sqlite("cluster_guard.db")
+    guard = IntentGuardCore(OllamaLocalEmbedder(model="bge-m3"), state_store=store)
+
+    draft = await guard.self_reflect_draft("agent_alpha", "Может позже, это зависит от многих факторов...")
+    if draft and draft.needs_self_correction:
+        print("Сначала исправь черновик:", draft.steering_hint)
+
+    guide = await guard.analyze_perspective("user_42", "Всё ужасно, и я не хочу проверять никакие факты!")
+    print("Опора:", guide.dominant_axis, "| Слепая зона:", guide.blind_spot_axis)
+    print("Ориентир для LLM:", guide.steering_hint)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
+
+## Что нового в версии 1.2.0
+
+* **4D-матрица принятия решений и взаимное обучение агентов (`CognitiveMatrixEngine`):** проецирует реплики на 4 оси (**Прямота `D`**, **Созидание `L`**, **Логика `R`**, **Открытость `O`**), хранит EMA-профиль (~250 байт), находит «слепые зоны» и позволяет моделям проверять себя (`self_reflect_draft`) и взаимно калибровать друг друга.
+* **High-Load шардированная многопоточность (`ShardedLockPool`):** `256` шардированных замков по `session_id` для параллельной работы тысяч пользователей.
+* **Подключаемое хранилище (`StateStore` Protocol: JSON, SQLite, MySQL, PostgreSQL):** `JsonFileStateStore` (с debounce-сбросом) и `SQLStateStore` (DB-API 2.0 для SQLite, MySQL, PostgreSQL) + `export_profile()` / `import_profile()`.
 
 ## Что нового в версии 1.1.5
 

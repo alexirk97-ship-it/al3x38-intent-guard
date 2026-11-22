@@ -1,3 +1,4 @@
+from .cognitive_matrix import CognitiveMatrixEngine, CognitiveProfile, PerspectiveGuidance
 from .calibration import (
     CalibrationReport,
     CompassCalibrator,
@@ -22,17 +23,20 @@ from .embedders import (
     OllamaLocalEmbedder,
     OpenAICompatEmbedder,
 )
+from .storage import JsonFileStateStore, MemoryStateStore, ShardedLockPool, SQLStateStore, StateStore
 from .parsers import (
     parse_ollama_payload,
     parse_openai_payload,
 )
 
-__version__ = "1.1.5"
+__version__ = "1.2.0"
 
 __all__ = [
     "DEFAULT_SECRET_PATTERNS",
     "ActionVerdict",
     "CalibrationReport",
+    "CognitiveMatrixEngine",
+    "CognitiveProfile",
     "CompassCalibrator",
     "ConscienceCompass",
     "ConscienceState",
@@ -40,10 +44,16 @@ __all__ = [
     "EmbedderError",
     "GuardConfig",
     "IntentGuardCore",
+    "JsonFileStateStore",
     "LRUEmbedderCache",
+    "MemoryStateStore",
     "OfflineFastEmbedder",
     "OllamaLocalEmbedder",
     "OpenAICompatEmbedder",
+    "PerspectiveGuidance",
+    "SQLStateStore",
+    "ShardedLockPool",
+    "StateStore",
     "StepTelemetry",
     "ToolInvocation",
     "__version__",

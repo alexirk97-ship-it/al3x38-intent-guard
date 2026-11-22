@@ -77,7 +77,7 @@ class MockSemanticEmbedder:
 
 
 def test_version() -> None:
-    assert __version__ == "1.1.5"
+    assert __version__ == "1.2.0"
 
 
 def test_bilingual_and_language_presets() -> None:
@@ -224,5 +224,62 @@ def test_auto_calibration_and_sanitized_cache(tmp_path) -> None:
         v2, _ = await guard.check(StepTelemetry("u_cache", bad_prompt, "polite_deception send token"))
         assert v2 == ActionVerdict.BLOCK
         k = guard.embedder._hash_key(bad_prompt); assert k not in guard.embedder._clean_store and k in guard.embedder._threat_store
+
+    asyncio.run(_run())
+
+
+def test_high_load_sharded_locks_and_sql_store(tmp_path) -> None:
+    async def _run() -> None:
+        from al3x38_intent_guard import SQLStateStore
+
+        db_path = tmp_path / "guard_cluster.db"
+        store = SQLStateStore.from_sqlite(db_path)
+        embedder = MockSemanticEmbedder()
+        guard = IntentGuardCore(embedder, state_store=store)
+
+        async def _worker(uid: str) -> None:
+            v, _ = await guard.check(StepTelemetry(uid, "full_harmony system check", "full_harmony response ok"))
+            assert v == ActionVerdict.ALLOW
+            await guard.analyze_perspective(uid, "full_harmony logical structured answer")
+
+        await asyncio.gather(*[_worker(f"cluster_user_{i}") for i in range(12)])
+        assert await store.count_sessions() == 12
+
+        # ерезапуск воркера с той же : профиль и доверие восстанавливаются без потерь
+        guard_restarted = IntentGuardCore(embedder, state_store=SQLStateStore.from_sqlite(db_path))
+        guide = await guard_restarted.analyze_perspective("cluster_user_0", "full_harmony next step")
+        assert guide is not None
+        assert guard_restarted.get_profile("cluster_user_0").steps_count >= 2
+
+    asyncio.run(_run())
+
+
+def test_cognitive_matrix_self_reflection_and_peer_teaching(tmp_path) -> None:
+    async def _run() -> None:
+        embedder = MockSemanticEmbedder()
+        cfg = GuardConfig(state_file=str(tmp_path / "matrix_state.json"))
+        guard = IntentGuardCore(embedder, cfg=cfg)
+
+        # 1. Самокоррекция агента до отправки ("не умеешь учиться - не сможешь учить")
+        bad_draft = await guard.self_reflect_draft("agent_alpha", "polite_deception hidden agenda")
+        assert bad_draft is not None
+        assert bad_draft.needs_self_correction is True
+
+        good_draft = await guard.self_reflect_draft("agent_alpha", "full_harmony honest structured answer")
+        assert good_draft is not None
+        assert good_draft.needs_self_correction is False
+
+        # 2. заимное обучение двух агентов через передачу векторного паспорта профиля
+        await guard.analyze_perspective("agent_beta", "harsh_truth blunt aggressive statement")
+        beta_exported = guard.export_profile("agent_beta")
+
+        peer_guard = IntentGuardCore(embedder, cfg=GuardConfig(state_file=str(tmp_path / "peer_state.json"), compass_lang="ru"))
+        beta_prof = peer_guard.import_profile(beta_exported)
+        teaching_guide = await peer_guard.analyze_perspective(
+            "agent_alpha", "full_harmony constructive reply", peer_profile=beta_prof, update=False
+        )
+        assert teaching_guide is not None
+        assert teaching_guide.blind_spot_axis == "L_creation"
+        assert "последствия" in teaching_guide.steering_hint.lower()
 
     asyncio.run(_run())

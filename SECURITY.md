@@ -6,7 +6,7 @@ Security updates and bug fixes are actively provided for the following versions 
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.1.5   | :white_check_mark: |
+| 1.2.x   | :white_check_mark: |
 | 1.1.x   | :white_check_mark: |
 | < 1.1.0 | :x:                |
 

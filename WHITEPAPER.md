@@ -1,7 +1,7 @@
 # AL3X38 IntentGuard & ResilientKarma: Technical Architecture Whitepaper
 
 **Author:** AL3X38-CORE (Alex / MoRoZ)  
-**Core Version:** 1.1.5  
+**Core Version:** 1.2.0  
 **Package:** `al3x38-intent-guard` (`pip install al3x38-intent-guard`)  
 **GitHub Repository:** https://github.com/alexirk97-ship-it/al3x38-intent-guard  
 **PyPI Package:** https://pypi.org/project/al3x38-intent-guard/  
@@ -15,7 +15,7 @@ Modern content moderation systems and LLM runtime guardrails suffer from two sys
 1. **Static Rule Filters (Regex / YAML):** They lack semantic awareness, block legitimate users over unconventional phrasing, and are easily bypassed via character substitution (leetspeak) or adversarial framing.
 2. **Heavy ML Classifiers ("Black Boxes"):** They require expensive GPU clusters, introduce high latency, and fail to provide transparent reasoning for bans or deterministic rehabilitation paths for users.
 
-**AL3X38 Core (v1.1.5)** introduces a deterministic hybrid security architecture grounded in formal logic and vector geometry. The engine filters out up to 95% of threats in constant time O(1) using lightweight vector math on CPU, anchors long-term session direction via a **Vector Compass**, verifies the balance of truth and constructive intent via the **Conscience Compass**, and invokes heavy LLM arbitration strictly within a narrow "gray zone" of semantic uncertainty.
+**AL3X38 Core (v1.2.0)** introduces a deterministic hybrid security architecture grounded in formal logic and vector geometry. The engine filters out up to 95% of threats in constant time O(1) using lightweight vector math on CPU, anchors long-term session direction via a **Vector Compass**, verifies the balance of truth and constructive intent via the **Conscience Compass**, and invokes heavy LLM arbitration strictly within a narrow "gray zone" of semantic uncertainty.
 
 ---
 
@@ -24,7 +24,7 @@ Modern content moderation systems and LLM runtime guardrails suffer from two sys
 The architecture translates natural behavioral and ethical invariants (truthfulness, constructive intent, trust, semantic alignment, and risk) into strictly computable mathematical metrics.
 
 ### 2.1. Differential Coherence Axes (`ConscienceCompass`: D ⋅ L → S)
-In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.1.5 defines **differential semantic axes** as the normalized difference between reference ($`\vec{V}_{+}`$) and anti-reference ($`\vec{V}_{-}`$) vectors:
+In high-dimensional embedding spaces, raw cosine similarity between any two sentences in the same language is almost always positive due to shared grammar and background vocabulary. To strip away linguistic background noise and establish a true zero-centered scale in $[-1.0, +1.0]$, v1.2.0 defines **differential semantic axes** as the normalized difference between reference ($`\vec{V}_{+}`$) and anti-reference ($`\vec{V}_{-}`$) vectors:
 
 $$\vec{V}_{\text{axis}} = \mathrm{norm}\!\left(\mathrm{norm}(\vec{V}_{+}) - \mathrm{norm}(\vec{V}_{-})\right)$$
 
@@ -44,7 +44,7 @@ S(D, L) = \begin{cases}
 Rather than judging isolated messages in a vacuum, the engine tracks a sliding window of recent steps per session and computes the trajectory gradient ($\Delta S = S_t - S_{t-1}$). If a step falls into negative coherence (S < 0) while demonstrating a decisive upward turn toward honest, constructive dialogue (Δ S > 0.08), hard blocking yields to a diagnostic `COURSE_CORRECTION` prompt.
 
 ### 2.3. Non-Linear Trust Penalty (`_calc_dynamic_penalty`)
-Instead of applying rigid, uniform penalties for every boundary violation, v1.1.5 scales trust deductions exponentially based on how far semantic drift or coherence breakdown (D) exceeds the allowed threshold (τ):
+Instead of applying rigid, uniform penalties for every boundary violation, v1.2.0 scales trust deductions exponentially based on how far semantic drift or coherence breakdown (D) exceeds the allowed threshold (τ):
 
 $$P(D, \tau) = S_{\text{down}} \cdot \left(0.5 + 0.5 \cdot \left(1 - e^{-4 \cdot \max(0, D - \tau)}\right)\right)$$
 
@@ -65,9 +65,23 @@ $$\tau_{\text{harmony}} = \mathrm{clip}\!\left(0.55 \cdot Q_{0.15}(S_{\mathcal{H
 
 To neutralize automated spam-bot floods without cache pollution, `LRUEmbedderCache` partitions RAM into a clean store ($512$ slots) and an isolated threat quarantine store ($128$ slots) indexed strictly by `SHA-256` digest: repeated attack payloads resolve in $O(1)$ with zero neural inference overhead while never evicting legitimate dialogue vectors.
 
+
+## 2.6. 4D Cognitive Decision Matrix & Mutual Agent Calibration (`v1.2.0`)
+
+Extending the 2D Conscience Compass ($D \cdot L \to S$), `CognitiveMatrixEngine` projects utterances onto four orthogonal poles: Directness ($D$), Creation ($L$), Analytical Logic ($R$), and Openness to Revision ($O$). Each entity maintains an EMA profile $\vec{M}_t = (1 - \alpha)\vec{M}_{t-1} + \alpha \vec{x}_t$ (~250 bytes, serializable to JSON, SQL, or encrypted `.core` files).
+
+Before emitting a response, an agent runs `self_reflect_draft()` to verify its own coherence gradient ($\nabla S \ge 0$). During interaction, `analyze_perspective()` detects the interlocutor's blind spot and outputs a structural steering hint for mutual calibration.
+
+
+### 2.7. Stereoscopic Bilingual Geometry: Analytical Precision & Holistic Imagery
+
+Natural languages organize meaning through complementary cognitive lenses: analytical languages (such as English) excel at strict taxonomy, discrete boundaries, and factual accounting, whereas synthetic, context-rich languages (such as Russian) encode holistic semantic holograms, subtext, and tonal resonance.
+
+By constructing default differential axes (`compass_lang="bilingual"`) along the normalized bisector of both English and Russian reference poles, `al3x38-intent-guard` achieves **stereoscopic semantic vision**: formal structural violations and disguised emotional or rhetorical manipulation are captured simultaneously within a single unified vector space (while `"en"` or `"ru"` presets remain available for monolingual models).
+
 ---
 
-## 3. Six-Tier Defense Pipeline (v1.1.5)
+## 3. Six-Tier Defense Pipeline (v1.2.0)
 
 ```text
 [Incoming Stream / Agent Step]
@@ -135,5 +149,5 @@ To neutralize automated spam-bot floods without cache pollution, `LRUEmbedderCac
 
 The reference Python implementation (`al3x38-intent-guard`) is optimized for low-overhead execution on modest hardware (including legacy multi-core CPUs and ARM boards like Raspberry Pi). For high-throughput platforms handling millions of events per minute, the architecture scales horizontally without altering its core math:
 * **Hot State Layer (`_trust_map`, `_goal_vectors`, `_trajectories`):** Migrate from local JSON snapshots (`al3x38_trust_state.json`) to an in-memory **Redis** cluster with TTL expiration.
-* **Audit & Reputation Storage:** Migrate from local JSONL logs and encrypted `.core` archives to sharded **MySQL / PostgreSQL** with asynchronous connection pooling.
+* **Built-in SQL & Sharded High-Load Layer (`v1.2.0`):** `IntentGuardCore` ships with a `256`-shard loop-safe lock pool (`ShardedLockPool`) and pluggable `StateStore` backends (`JsonFileStateStore` with debounce flush and `SQLStateStore` supporting SQLite WAL, **MySQL**, and **PostgreSQL** via DB-API 2.0).
 * **High-Frequency Compute:** Core mathematical routines (`_cos_dist`, `_calc_entropy`, `_calc_dynamic_penalty`, `ConscienceCompass`) have zero heavy framework dependencies and can be compiled as native microservices in **Go** or **Rust** for sub-millisecond throughput.

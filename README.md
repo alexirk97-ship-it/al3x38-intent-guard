@@ -28,7 +28,7 @@ The kernel translates this principle into fast, dependency-free vector math on `
 
 ---
 
-## Defense Pipeline (v1.1.5)
+## Defense Pipeline (v1.2.0)
 
 ```text
 [User Prompt + LLM Response + Tool Calls + Logits]
@@ -179,7 +179,34 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### 5. High-Load SQL Persistence & Agent Self-Correction (`v1.2.0`)
+```python
+import asyncio
+from al3x38_intent_guard import IntentGuardCore, OllamaLocalEmbedder, SQLStateStore
+
+async def main():
+    store = SQLStateStore.from_sqlite("cluster_guard.db")
+    guard = IntentGuardCore(OllamaLocalEmbedder(model="bge-m3"), state_store=store)
+
+    draft = await guard.self_reflect_draft("agent_alpha", "Maybe later, it depends on many things...")
+    if draft and draft.needs_self_correction:
+        print("Revise draft first:", draft.steering_hint)
+
+    guide = await guard.analyze_perspective("user_42", "Everything is terrible, I don't want to check any facts!")
+    print("Dominant:", guide.dominant_axis, "| Blind spot:", guide.blind_spot_axis)
+    print("LLM hint:", guide.steering_hint)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
+
+## What's New in v1.2.0
+
+* **4D Cognitive Decision Matrix & Mutual Agent Teaching (`CognitiveMatrixEngine`):** Projects utterances onto 4 orthogonal poles (`D`, `L`, `R`, `O`), maintains a compact per-entity EMA profile (`~250 bytes`), detects blind spots, and provides `self_reflect_draft()` + `analyze_perspective()` so AI agents self-correct before answering and mutually calibrate each other.
+* **High-Load Sharded Concurrency (`ShardedLockPool`):** Uses a `256`-shard loop-safe lock pool so thousands of users run in parallel without blocking each other.
+* **Pluggable Persistence (`StateStore` Protocol: JSON, SQLite, MySQL, PostgreSQL):** Adds `JsonFileStateStore` (with debounce flush) and `SQLStateStore` (DB-API 2.0 adapter for SQLite, MySQL, and PostgreSQL) plus `export_profile()` / `import_profile()`.
 
 ## What's New in v1.1.5
 

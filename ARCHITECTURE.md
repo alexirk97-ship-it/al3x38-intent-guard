@@ -1,4 +1,4 @@
-# Architecture & Core Invariants (`al3x38-intent-guard` v1.1.5)
+# Architecture & Core Invariants (`al3x38-intent-guard` v1.2.0)
 
 This document defines the foundational philosophy, mathematical invariants, and architectural boundaries of the **al3x38** behavioral alignment kernel. Every module, driver, or integration built on top of this core follows one overarching rule: **measure alignment against natural invariants rather than patching symptoms with endless static rules.**
 
@@ -70,3 +70,10 @@ All applied intelligence connects to the core through minimal, dependency-free i
 * **Dual-Contour Anti-Flood Cache (`LRUEmbedderCache`):** Separates vectors into a clean LRU store (`512` slots) and an isolated threat quarantine store (`128` slots) indexed by `SHA-256`. Repeated spam/DDoS prompts resolve in $O(1)$ without hitting the neural embedder or evicting legitimate conversation anchors.
 * **Gray-Zone Arbitrator (`gray_zone_judge`):** Optional async callback invoked exclusively when semantic drift falls inside the borderline corridor (`gray_zone_min_drift .. max_semantic_drift`).
 * **Stream Interceptor (`verify_stream`):** Token-level sliding window validator that halts streaming generation mid-flight upon secret leak or semantic drift, rewarding session trust strictly once upon full, clean completion.
+
+
+## 5. High-Load Persistence & 4D Cognitive Decision Matrix (`v1.2.0`)
+
+* **Sharded Concurrency (`ShardedLockPool`):** Uses a `256`-shard loop-safe `asyncio.Lock` pool hashed via `BLAKE2b(session_id)`.
+* **Pluggable `StateStore` (`storage.py`):** Decouples session persistence via `MemoryStateStore`, `JsonFileStateStore` (debounce flush), and `SQLStateStore` (DB-API 2.0 for SQLite, MySQL, PostgreSQL).
+* **4D Orthogonal Matrix (`CognitiveMatrixEngine`):** Tracks per-entity EMA projections across Directness (`D`), Creation (`L`), Logic (`R`), and Openness (`O`), powering `self_reflect_draft()` and `analyze_perspective()`.

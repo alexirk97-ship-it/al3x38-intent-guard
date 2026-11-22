@@ -1,9 +1,9 @@
 from __future__ import annotations
+from typing import Any
 import asyncio
 import json
 import logging
 import math
-import os
 import re
 import time
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
@@ -12,7 +12,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 import numpy as np
 
+from .cognitive_matrix import CognitiveMatrixEngine, CognitiveProfile, PerspectiveGuidance
 from .conscience_compass import AnchorLang, ConscienceCompass, ConscienceState
+from .storage import JsonFileStateStore, MemoryStateStore, ShardedLockPool, StateStore
 from .embedders import Embedder, LRUEmbedderCache
 
 if TYPE_CHECKING:
@@ -77,6 +79,9 @@ class GuardConfig:
     destructive_threshold: float = -0.015
     deception_d_threshold: float = -0.008
     deception_l_min: float = 0.04
+    enable_cognitive_matrix: bool = True
+    cognitive_ema_alpha: float = 0.25
+    state_flush_interval_sec: float = 0.0
     secret_patterns: tuple[str, ...] = DEFAULT_SECRET_PATTERNS
     gray_zone_judge: Callable[[StepTelemetry, float], Awaitable[bool]] | None = None
     restricted_tools: set[str] = field(default_factory=lambda: {
@@ -91,48 +96,70 @@ class GuardConfig:
 
 class IntentGuardCore:
     """
-    Контур поведенческого контроля ИИ-агента v1.1.5 (al3x38 architecture).
+    Контур поведенческого контроля ИИ-агента v1.2.0 (al3x38 architecture).
     Включает семантическую кросс-валидацию, Векторный Компас (эталон цели),
     Компас Совести (D * L -> S), нелинейную математику штрафов доверия,
     проверку серой зоны и фильтр утечек.
     """
 
-    def __init__(self, embedder: Embedder, cfg: GuardConfig | None = None, cache_size: int = 512):
-        self.embedder = LRUEmbedderCache(embedder, capacity=cache_size)
+    def __init__(
+        self,
+        embedder: Embedder,
+        cfg: GuardConfig | None = None,
+        cache_size: int = 512,
+        state_store: StateStore | None = None,
+    ):
         self.cfg = cfg or GuardConfig()
-        self.compass = (
-            ConscienceCompass(
-                self.embedder,
-                anchor_lang=self.cfg.compass_lang,
-                min_harmony_threshold=self.cfg.min_harmony_threshold,
-                destructive_threshold=self.cfg.destructive_threshold,
-                deception_d_threshold=self.cfg.deception_d_threshold,
-                deception_l_min=self.cfg.deception_l_min,
+        self.embedder = LRUEmbedderCache(embedder, capacity=cache_size)
+        self._locks = ShardedLockPool(shards=256)
+        if state_store is not None:
+            self._store: StateStore = state_store
+        elif self.cfg.state_file:
+            self._store = JsonFileStateStore(
+                self.cfg.state_file, flush_interval_sec=self.cfg.state_flush_interval_sec
             )
+        else:
+            self._store = MemoryStateStore()
+        self._trust_map: dict[str, float] = {}
+        self._profiles: dict[str, CognitiveProfile] = {}
+        self._session_anchors: dict[str, np.ndarray] = {}
+        self._goal_anchors: dict[str, np.ndarray] = {}
+        self._goal_vectors: dict[str, np.ndarray] = {}
+        self._goal_texts: dict[str, str] = {}
+        self._last_seen: dict[str, float] = {}
+        self._stats: dict[str, int | float] = {
+            "allowed": 0,
+            "blocked": 0,
+            "conscience_blocks": 0,
+            "course_corrections": 0,
+            "drift_sum": 0.0,
+            "gray_zone_invocations": 0,
+            "need_approval": 0,
+            "secret_leaks_caught": 0,
+            "suspended": 0,
+            "total_checks": 0,
+        }
+        self._compiled_secrets = [re.compile(pat) for pat in self.cfg.secret_patterns]
+        self.compass = (
+            ConscienceCompass(self.embedder, anchor_lang=self.cfg.compass_lang)
             if self.cfg.enable_conscience_compass
             else None
         )
-        self._lock = asyncio.Lock()
-        self._trust_map: dict[str, float] = {}
-        self._last_seen: dict[str, float] = {}
-        self._goal_texts: dict[str, str] = {}
-        self._goal_vectors: dict[str, np.ndarray] = {}
-        self._compiled_secrets: list[re.Pattern] = [
-            re.compile(p) for p in self.cfg.secret_patterns
-        ] if self.cfg.enable_secret_guard else []
-
-        self._stats: dict[str, float] = {
-            "total_checks": 0,
-            "allowed": 0,
-            "blocked": 0,
-            "need_approval": 0,
-            "course_corrections": 0,
-            "suspended": 0,
-            "secret_leaks_caught": 0,
-            "gray_zone_invocations": 0,
-            "conscience_blocks": 0,
-            "drift_sum": 0.0,
-        }
+        if self.compass is not None:
+            self.compass.min_harmony = self.cfg.min_harmony_threshold
+            self.compass.destructive_threshold = self.cfg.destructive_threshold
+            self.compass.deception_d_threshold = self.cfg.deception_d_threshold
+            self.compass.deception_l_min = self.cfg.deception_l_min
+        self.matrix = (
+            CognitiveMatrixEngine(
+                self.embedder,
+                ema_alpha=self.cfg.cognitive_ema_alpha,
+                lang=self.cfg.compass_lang,
+                revision_threshold=self.cfg.destructive_threshold,
+            )
+            if self.cfg.enable_cognitive_matrix
+            else None
+        )
         self._read_state()
 
     def _quarantine_step_vectors(self, step: StepTelemetry) -> None:
@@ -155,52 +182,72 @@ class IntentGuardCore:
         return await calibrator.calibrate(base_config=cfg)
 
     def _read_state(self) -> None:
-        """Загружает сохранённые рейтинги доверия и эталонные цели сессий с диска."""
-        if not self.cfg.state_file or not os.path.exists(self.cfg.state_file):
+        if isinstance(self._store, JsonFileStateStore):
+            for sid, item in self._store._sessions.items():
+                if "trust" in item:
+                    self._trust_map[sid] = float(item["trust"])
+                if "profile" in item and isinstance(item["profile"], dict):
+                    self._profiles[sid] = CognitiveProfile.from_dict(item["profile"])
+
+    async def _ensure_session_loaded(self, session_id: str) -> None:
+        if session_id in self._trust_map:
             return
-        try:
-            with open(self.cfg.state_file, "r", encoding="utf-8") as f:
-                raw = json.load(f)
-                now = time.time()
-                for k, v in raw.items():
-                    sid = str(k)
-                    if isinstance(v, dict):
-                        self._trust_map[sid] = float(v.get("trust", self.cfg.init_trust))
-                        self._last_seen[sid] = float(v.get("updated_at", now))
-                        goal = v.get("goal")
-                        if isinstance(goal, str) and goal.strip():
-                            self._goal_texts[sid] = goal
-                    else:
-                        self._trust_map[sid] = float(v)
-                        self._last_seen[sid] = now
-        except Exception as err:
-            log.warning(f"Сбой чтения файла состояния '{self.cfg.state_file}': {err}")
+        saved = await self._store.load_session(session_id)
+        if saved:
+            if "trust" in saved:
+                self._trust_map[session_id] = float(saved["trust"])
+            if "profile" in saved and isinstance(saved["profile"], dict):
+                self._profiles[session_id] = CognitiveProfile.from_dict(saved["profile"])
+
+    async def _save_session_state(self, session_id: str) -> None:
+        trust = self._trust_map.get(session_id, self.cfg.init_trust)
+        prof = self._profiles.get(session_id)
+        payload: dict[str, Any] = {"trust": round(trust, 4), "updated_at": time.time()}
+        if prof is not None:
+            payload["profile"] = prof.to_dict()
+        await self._store.save_session(session_id, payload)
 
     async def _flush_state(self) -> None:
-        """Атомарно сохраняет текущее состояние доверия и целей в JSON-файл."""
-        if not self.cfg.state_file:
-            return
-        now = time.time()
-        all_sids = set(self._trust_map.keys()) | set(self._goal_texts.keys())
-        dump = {}
-        for sid in all_sids:
-            entry: dict[str, object] = {
-                "trust": round(self._trust_map.get(sid, self.cfg.init_trust), 4),
-                "updated_at": self._last_seen.get(sid, now),
-            }
-            if sid in self._goal_texts:
-                entry["goal"] = self._goal_texts[sid]
-            dump[sid] = entry
+        for sid in list(self._trust_map.keys()):
+            await self._save_session_state(sid)
 
-        target = self.cfg.state_file
+    def get_profile(self, session_id: str) -> CognitiveProfile:
+        prof = self._profiles.get(session_id)
+        if prof is None:
+            prof = CognitiveProfile(session_id=session_id)
+            self._profiles[session_id] = prof
+        return prof
 
-        def _save() -> None:
-            tmp = f"{target}.tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(dump, f, indent=2, ensure_ascii=False)
-            os.replace(tmp, target)
+    def export_profile(self, session_id: str) -> dict[str, Any]:
+        return self.get_profile(session_id).to_dict()
 
-        await asyncio.to_thread(_save)
+    def import_profile(self, payload: dict[str, Any]) -> CognitiveProfile:
+        prof = CognitiveProfile.from_dict(payload)
+        self._profiles[prof.session_id] = prof
+        return prof
+
+    async def analyze_perspective(
+        self,
+        session_id: str,
+        text: str,
+        peer_profile: CognitiveProfile | None = None,
+        update: bool = True,
+    ) -> PerspectiveGuidance | None:
+        if self.matrix is None:
+            return None
+        async with self._locks.get_lock(session_id):
+            await self._ensure_session_loaded(session_id)
+            prof = self.get_profile(session_id)
+            guide = await self.matrix.analyze_and_guide(
+                text=text, profile=prof, peer_profile=peer_profile, update=update
+            )
+            if update:
+                await self._save_session_state(session_id)
+            return guide
+
+    async def self_reflect_draft(self, agent_id: str, draft_text: str) -> PerspectiveGuidance | None:
+        """Self-reflection loop: evaluates an AI agent draft before emission."""
+        return await self.analyze_perspective(session_id=agent_id, text=draft_text, update=True)
 
     async def _write_audit(self, session_id: str, verdict: ActionVerdict, reason: str, drift: float) -> None:
         """Записывает событие проверки в журнал аудита (формат JSONL)."""
@@ -287,10 +334,10 @@ class IntentGuardCore:
             await self.clear_session_goal(session_id)
             return
         vec = await self.embedder.get_vector(clean_goal)
-        async with self._lock:
+        async with self._locks.get_lock(session_id):
             self._goal_texts[session_id] = clean_goal
             self._goal_vectors[session_id] = vec
-            await self._flush_state()
+            await self._save_session_state(session_id)
 
     def get_session_goal(self, session_id: str) -> str | None:
         """Возвращает текст текущей эталонной цели для указанной сессии."""
@@ -298,10 +345,10 @@ class IntentGuardCore:
 
     async def clear_session_goal(self, session_id: str) -> None:
         """Удаляет эталонную цель сессии (отключает проверку Векторного Компаса)."""
-        async with self._lock:
+        async with self._locks.get_lock(session_id):
             self._goal_texts.pop(session_id, None)
             self._goal_vectors.pop(session_id, None)
-            await self._flush_state()
+            await self._save_session_state(session_id)
 
     def get_session_trust(self, session_id: str) -> float:
         """Возвращает текущий рейтинг доверия сессии."""
@@ -311,7 +358,7 @@ class IntentGuardCore:
         """Возвращает детальную векторную оценку (D, L, S, gradient) для текста."""
         if self.compass is None:
             return None
-        async with self._lock:
+        async with self._locks.get_lock(session_id):
             return await self.compass.evaluate(session_id, text)
 
     def get_stats(self) -> dict[str, float]:
@@ -335,13 +382,13 @@ class IntentGuardCore:
 
     async def reset_session(self, session_id: str, new_trust: float | None = None) -> float:
         """Сбрасывает рейтинг доверия и траекторию когерентности сессии."""
-        async with self._lock:
+        async with self._locks.get_lock(session_id):
             val = self.cfg.init_trust if new_trust is None else max(0.0, min(1.0, new_trust))
             self._trust_map[session_id] = val
             self._last_seen[session_id] = time.time()
             if self.compass is not None:
                 self.compass.reset_trajectory(session_id)
-            await self._flush_state()
+            await self._save_session_state(session_id)
             return val
 
     async def check(self, step: StepTelemetry, reward_trust: bool = True) -> tuple[ActionVerdict, str]:
@@ -351,7 +398,7 @@ class IntentGuardCore:
         удержание эталонной цели (Векторный Компас) и когерентность Совести (D * L -> S).
         """
 
-        async with self._lock:
+        async with self._locks.get_lock(step.session_id):
             self._stats["total_checks"] += 1
             trust = self._apply_time_recovery(step.session_id)
 
@@ -368,7 +415,7 @@ class IntentGuardCore:
                 self._stats["blocked"] += 1
                 trust = max(0.0, trust - self.cfg.trust_step_down)
                 self._trust_map[step.session_id] = trust
-                await self._flush_state()
+                await self._save_session_state(step.session_id)
                 reason = f"Блок утечки конфиденциальных данных или промпта (trust={trust:.2f})"
                 self._quarantine_step_vectors(step)
                 await self._write_audit(step.session_id, ActionVerdict.BLOCK, reason, 1.0)
@@ -400,7 +447,7 @@ class IntentGuardCore:
                     penalty = self._calc_dynamic_penalty(tool_drift, self.cfg.max_semantic_drift)
                     trust = max(0.0, trust - penalty)
                     self._trust_map[step.session_id] = trust
-                    await self._flush_state()
+                    await self._save_session_state(step.session_id)
                     reason = (
                         f"Блок '{tool.name}': аргументы не соответствуют смыслу запроса "
                         f"(drift={tool_drift:.2f}, penalty=-{penalty:.2f}, trust={trust:.2f})"
@@ -421,7 +468,7 @@ class IntentGuardCore:
                     penalty = self._calc_dynamic_penalty(resp_drift, self.cfg.gray_zone_min_drift)
                     trust = max(0.0, trust - penalty)
                     self._trust_map[step.session_id] = trust
-                    await self._flush_state()
+                    await self._save_session_state(step.session_id)
                     reason = (
                         f"Отклонено судьей серой зоны "
                         f"(drift={resp_drift:.2f}, penalty=-{penalty:.2f}, trust={trust:.2f})"
@@ -436,7 +483,7 @@ class IntentGuardCore:
                 penalty = self._calc_dynamic_penalty(resp_drift, self.cfg.max_semantic_drift)
                 trust = max(0.0, trust - penalty)
                 self._trust_map[step.session_id] = trust
-                await self._flush_state()
+                await self._save_session_state(step.session_id)
                 reason = (
                     f"Отклонено: сдвиг смысла ({resp_drift:.2f}) или аномалия логитов ({entropy:.2f}) "
                     f"(penalty=-{penalty:.2f}, trust={trust:.2f})"
@@ -465,7 +512,7 @@ class IntentGuardCore:
                     penalty = self._calc_dynamic_penalty(goal_drift, self.cfg.max_goal_drift)
                     trust = max(0.0, trust - penalty)
                     self._trust_map[step.session_id] = trust
-                    await self._flush_state()
+                    await self._save_session_state(step.session_id)
                     reason = (
                         f"Критическое отклонение от эталонной цели «{goal_text[:45]}» "
                         f"(goal_drift={goal_drift:.2f}, penalty=-{penalty:.2f}, trust={trust:.2f})"
@@ -510,7 +557,7 @@ class IntentGuardCore:
                     penalty = self._calc_dynamic_penalty(abs(c_state.conscience_score), 0.0)
                     trust = max(0.0, trust - penalty)
                     self._trust_map[step.session_id] = trust
-                    await self._flush_state()
+                    await self._save_session_state(step.session_id)
                     reason = (
                         f"Блок распада когерентности Совести "
                         f"(D={c_state.friendship_coh}, L={c_state.love_coh} -> "
@@ -537,7 +584,7 @@ class IntentGuardCore:
             if reward_trust:
                 trust = min(1.0, trust + self.cfg.trust_step_up)
                 self._trust_map[step.session_id] = trust
-                await self._flush_state()
+                await self._save_session_state(step.session_id)
             reason = f"OK (trust={trust:.2f})"
             return ActionVerdict.ALLOW, reason
 
